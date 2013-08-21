@@ -1,56 +1,86 @@
 #include <iostream>
+#include <cmath>
 #include "ceres/ceres.h"
-#include "psf.h"
-#include "image.h"
 
 #define WIDTH 10
 #define HEIGHT 16
 
-using namespace KPSF;
 using Eigen::MatrixXi;
 using Eigen::MatrixXd;
 
-struct ExponentialResidual {
-    ExponentialResidual (MatrixXd flux, Image<PSF> img)
-        : flux_ (flux), img_ (img) {}
+template <typename T>
+class PSF {
+public:
+    PSF (const T* const pars)
+        : pars_ (pars) {
+        invdet_ = T(0.5) / (pars[0] * pars[2] - pars[1] * pars[1]);
+        factor_ = sqrt(invdet_) / T(M_PI);
+    };
+
+    T evaluate (const T dx, const T dy) const {
+        return factor_ * exp(-invdet_ * (pars_[2] * dx * dx +
+                                         pars_[0] * dy * dy -
+                                         T(2) * pars_[1] * dx * dy));
+    };
+
+private:
+    const T* const pars_;
+    T invdet_, factor_;
+};
+
+class ImageResidualBlock {
+public:
+    ImageResidualBlock (MatrixXd flux)
+        : flux_ (flux) {};
 
     template <typename T>
-    bool operator() (const T* const x, const T* const y, const T* const f,
+    bool operator() (const T* const coords, const T* const psfpars,
                      T* residual) const {
-        int ix, iy, width = flux_.rows(), height = flux_.cols();
-        std::cout << width << " " << height << std::endl;
+        int ix, iy,
+            width = flux_.rows(), height = flux_.cols();
+        PSF<T> psf (psfpars);
+
         for (ix = 0; ix < width; ++ix)
-            for (iy = 0; iy < height; ++iy)
-                residual[ix * height + iy] = T(flux_(ix, iy)) - img_.evaluate(x[0], y[0], f[0], ix, iy);
+            for (iy = 0; iy < height; ++iy) {
+                T value = coords[2] * psf.evaluate(coords[0] - T(ix),
+                                                   coords[1] - T(iy));
+                residual[ix * height + iy] = T(flux_(ix, iy)) - value;
+            }
 
         return true;
     }
 
 private:
     const MatrixXd flux_;
-    const Image<PSF> img_;
-
 };
 
 int main ()
 {
-    PSF psf;
-    MatrixXi mask = MatrixXi::Ones(WIDTH, HEIGHT);
-    MatrixXd bias = MatrixXd::Zero(WIDTH, HEIGHT),
-             ff = MatrixXd::Ones(WIDTH, HEIGHT);
-    Image<PSF> img (WIDTH, HEIGHT, &psf, &mask, &bias, &ff);
-    double x0 = 2.5, y0 = 4.5, f0 = 1.0;
-    MatrixXd data = img.generate(x0, y0, f0);
+    double coords[3] = {3.1234, 4.49815, 1.0},
+           psfpars[3] = {1.0, 0.1, 1.0};
 
-    x0 += 0.1;
-    y0 -= 0.1;
-    f0 -= 0.2;
+    PSF<double> psf(psfpars);
+    MatrixXd data(WIDTH, HEIGHT);
+
+    int ix, iy;
+    for (ix = 0; ix < WIDTH; ++ix)
+        for (iy = 0; iy < HEIGHT; ++iy)
+            data(ix, iy) = coords[2] * psf.evaluate(coords[0] - ix,
+                                                    coords[1] - iy);
+
+    coords[0] += 1;
+    coords[1] -= 1;
+    coords[2] += 10;
+
+    psfpars[0] -= 0.5;
+    psfpars[1] += 0.5;
+    psfpars[2] += 0.5;
 
     ceres::Problem problem;
-    ceres::CostFunction* cost_function =
-        new ceres::AutoDiffCostFunction<ExponentialResidual, WIDTH*HEIGHT, 1, 1, 1>(
-                new ExponentialResidual(data, img));
-    problem.AddResidualBlock(cost_function, NULL, &x0, &y0, &f0);
+    ceres::CostFunction *cost_function =
+        new ceres::AutoDiffCostFunction<ImageResidualBlock, WIDTH*HEIGHT, 3, 3>(
+                new ImageResidualBlock(data));
+    problem.AddResidualBlock(cost_function, NULL, coords, psfpars);
 
     ceres::Solver::Options options;
     options.max_num_iterations = 25;
@@ -61,7 +91,8 @@ int main ()
     ceres::Solve(options, &problem, &summary);
 
     std::cout << summary.BriefReport() << "\n";
-    std::cout << "Final   x: " << x0 << " y: " << y0 << " f: " << f0 << "\n";
+    std::cout << "Final   x: " << coords[0] << " y: " << coords[1] << " f: " << coords[2] << "\n";
+    std::cout << "PSF: " << psfpars[0] << " " << psfpars[1] << " " << psfpars[2] << "\n";
 
     return 0;
 }

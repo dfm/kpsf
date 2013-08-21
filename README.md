@@ -1,0 +1,1 @@
+PSF photometry == huge optimization

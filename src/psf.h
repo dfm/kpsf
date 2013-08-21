@@ -22,10 +22,14 @@ namespace KPSF {
             params_ = params;
             det_ = params_[0] * params[2] - params[1] * params[1];
         }
-        double evaluate (double dx, double dy) {
-            return 0.5 * exp((-0.5 * (params_[2] * dx * dx
-                                      + params_[0] * dy * dy)
-                            + params_[1] * dx * dy) / det_) / det_ / M_PI;
+
+        template <typename T>
+        T evaluate (const T dx, const T dy) {
+            return T(0.5) * exp((T(-0.5)
+                                 * (T(params_[2]) * dx * dx
+                                 + T(params_[0]) * dy * dy)
+                                 + T(params_[1]) * dx * dy) / T(det_))
+                   / T(det_ * M_PI);
         }
 
     private:

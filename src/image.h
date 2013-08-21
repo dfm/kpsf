@@ -21,17 +21,24 @@ namespace KPSF {
         };
         ~Image () {};
 
-        Eigen::MatrixXd evaluate (double xpos, double ypos, double flux) {
+        template <typename T>
+        T evaluate (const T xpos, const T ypos, const T flux,
+                    const double xi, const double yi) const {
+            return T( (*bias_)(xi, yi) )
+                   + T( (*flat_field_)(xi, yi) ) * flux
+                   * psf_->evaluate (xpos - T(xi), ypos - T(yi));
+        };
+
+        Eigen::MatrixXd generate (const double xpos,
+                                  const double ypos,
+                                  const double flux) {
             int x, y;
             Eigen::MatrixXd img = Eigen::MatrixXd::Zero(width_, height_);
             for (x = 0; x < width_; ++x)
                 for (y = 0; y < height_; ++y)
-                    if ((*mask_)(x, y))
-                        img(x, y) = (*bias_)(x, y) + (*flat_field_)(x, y)
-                                    * flux
-                                    * psf_->evaluate(xpos - x, ypos - y);
+                    img(x, y) = evaluate (xpos, ypos, flux, x, y);
             return img;
-        }
+        };
 
     private:
 

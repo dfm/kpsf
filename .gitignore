@@ -4,3 +4,4 @@
 *.pyc
 *.png
 *.txt
+.syntastic_c_config

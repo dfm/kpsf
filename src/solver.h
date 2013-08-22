@@ -1,9 +1,6 @@
 #ifndef _KPSF_SOLVER_H_
 #define _KPSF_SOLVER_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 //
 // Solve for the flux time series.
@@ -29,10 +26,11 @@ extern "C" {
 // :param double *psfpars:
 //      An initial guess for the PSF parameters. Must have length 3.
 //
-int kpsf_solve (int ntime, int npixels, double ***data, double *dim,
-                double **coords, double *psfpars);
 
 #ifdef __cplusplus
-}
+extern "C"
 #endif
+int kpsf_solve (int ntime, int npixels, double *data, double *dim,
+                double *coords, double *psfpars);
+
 #endif

@@ -6,6 +6,7 @@ from __future__ import division, print_function, absolute_import
 import numpy as np
 from kpsf._kpsf import solve
 
+
 class PSF(object):
 
     def __init__(self, pars):
@@ -33,6 +34,7 @@ def generate_image(mask, coords, psf, noise):
 
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as pl
     w, h = 9, 6
     psfpars = np.array([3.5, 0.1, 1.8])
     psf = PSF(psfpars)
@@ -41,15 +43,35 @@ if __name__ == "__main__":
     mask[[0, -1], 0] = 0
     mask[[0, -1], -1] = 0
 
-    coords = np.array([3.56, 1.540, 1.])
-    data = generate_image(mask, coords, psf, 4e-3)
+    coords = np.array([3.56, 2.540, 10.])
 
-    print(coords, psfpars)
+    N = 20
+    truth = np.empty([N, 3])
+    data = []
+    for i in range(N):
+        coords += 0.1 * np.random.randn(3)
+        truth[i] = coords
+        data.append(generate_image(mask, truth[i], psf, 0.005))
 
-    coords += 0.2 * np.random.randn(3)
+    blah = np.zeros_like(mask, dtype=float)
+    blah[np.array(data[-1][:, 0], dtype=int),
+         np.array(data[-1][:, 1], dtype=int)] = data[-1][:, 2]
+    pl.imshow(blah, cmap="gray", interpolation="nearest")
+    pl.savefig("data.png")
+
     psfpars += 0.2 * np.random.randn(3)
 
-    coords = np.atleast_2d(coords)
+    initial = np.array(truth)
+    initial[:, 0] += 0.1 * np.random.randn(N)
+    initial[:, 1] += 0.1 * np.random.randn(N)
+    initial[:, 2] += np.random.randn(N)
 
-    print(coords, psfpars)
-    print(solve([data], [w, h], coords, psfpars))
+    info, coords, ff, psfpars = solve(data, [w, h], initial,
+                                      np.ones(np.sum(mask)/3.0), psfpars)
+
+    print(ff)
+
+    pl.clf()
+    pl.plot(truth[:, 2])
+    pl.plot(coords[:, 2])
+    pl.savefig("test.png")

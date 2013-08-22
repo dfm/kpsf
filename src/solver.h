@@ -5,6 +5,7 @@
 extern "C"
 #endif
 int kpsf_solve (int ntime, int npixels, double *data, double *dim,
-                double *coords, double *psfpars, int verbose);
+                double *coords, double *flat_field, double *psfpars,
+                int verbose);
 
 #endif

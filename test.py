@@ -28,7 +28,7 @@ def generate_image(mask, coords, psf, noise):
         + noise * np.random.randn(w*h).reshape((w, h))
     img[mask == 0] = np.nan
     coords = np.vstack([x.flatten(), y.flatten(), img.flatten(),
-                        noise * np.ones_like(img).flatten()]).T
+                        np.ones_like(img).flatten() / noise]).T
     return coords[mask.flatten() > 0, :]
 
 
@@ -44,4 +44,12 @@ if __name__ == "__main__":
     coords = np.array([3.56, 1.540, 1.])
     data = generate_image(mask, coords, psf, 4e-3)
 
-    print(solve([data], [w, h], [coords], psfpars))
+    print(coords, psfpars)
+
+    coords += 0.2 * np.random.randn(3)
+    psfpars += 0.2 * np.random.randn(3)
+
+    coords = np.atleast_2d(coords)
+
+    print(coords, psfpars)
+    print(solve([data], [w, h], coords, psfpars))

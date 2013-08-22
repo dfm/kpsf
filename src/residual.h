@@ -43,7 +43,7 @@ public:
                 ind4 = 4*ind;
                 value = pars[0][i3+2]*psf.evaluate(pars[0][i3]-T(data_[ind4]),
                                                    pars[0][i3+1]-T(data_[ind4+1]));
-                residuals[ind] = T(data_[ind4+2]) - value;
+                residuals[ind] = (T(data_[ind4+2]) - value) * T(data_[ind4+3]);
             }
         }
 

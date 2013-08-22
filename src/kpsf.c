@@ -27,6 +27,7 @@ static PyObject
                           &psf_obj))
         return NULL;
 
+    // Parse the numpy arrays.
     PyArrayObject *data_array = PARSE_ARRAY(data_obj),
                   *dim_array = PARSE_ARRAY(dim_obj),
                   *coords_array = PARSE_ARRAY(coords_obj),
@@ -40,17 +41,29 @@ static PyObject
         return NULL;
     }
 
+    // Figure out the dimensions.
     int ntime = (int) PyArray_DIM (data_array, 0),
         npixels = (int) PyArray_DIM (data_array, 1);
 
+    // Access the arrays.
     double *data = PyArray_DATA(data_array),
            *dim = PyArray_DATA(dim_array),
            *coords = PyArray_DATA(coords_array),
            *psfpars = PyArray_DATA(psf_array);
 
-    int info = kpsf_solve(ntime, npixels, data, dim, coords, psfpars);
+    // Solve using Ceres.
+    int info = kpsf_solve(ntime, npixels, data, dim, coords, psfpars, 1);
 
-    return Py_BuildValue("i", info);
+    // Build the output.
+    PyObject *ret = Py_BuildValue ("iOO", info, coords_array, psf_array);
+
+    // Clean up.
+    Py_DECREF(data_array);
+    Py_DECREF(dim_array);
+    Py_DECREF(coords_array);
+    Py_DECREF(psf_array);
+
+    return ret;
 }
 
 static PyMethodDef kpsf_methods[] = {

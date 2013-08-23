@@ -12,8 +12,8 @@ using ceres::CostFunction;
 using ceres::DynamicAutoDiffCostFunction;
 
 int kpsf_solve (int ntime, int npixels, double *data, double *dim,
-                double *coords, double *flat_field, double *psfpars,
-                int verbose)
+                double *coords, double *flat_field, double *bias,
+                double *psfpars, int verbose)
 {
     Problem problem;
 
@@ -23,13 +23,14 @@ int kpsf_solve (int ntime, int npixels, double *data, double *dim,
 
     cost->AddParameterBlock(3*ntime);
     cost->AddParameterBlock(npixels);
+    cost->AddParameterBlock(npixels);
     cost->AddParameterBlock(3);
     cost->SetNumResiduals(ntime*npixels);
-    problem.AddResidualBlock (cost, NULL, coords, flat_field, psfpars);
+    problem.AddResidualBlock (cost, NULL, coords, flat_field, bias, psfpars);
 
     Solver::Options options;
     options.max_num_iterations = 100;
-    options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+    options.linear_solver_type = ceres::SPARSE_SCHUR;
     if (verbose > 0)
         options.minimizer_progress_to_stdout = true;
 

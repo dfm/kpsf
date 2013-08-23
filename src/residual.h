@@ -4,30 +4,6 @@
 #include <iostream>
 #include <cmath>
 
-template <typename T>
-class PSF {
-public:
-    PSF (const T* const pars)
-        : pars_(pars)
-    {
-        det_ = pars_[0] * pars_[2] - pars_[1] * pars_[1];
-        invdet_ = T(0.5) / det_;
-        factor_ = sqrt(invdet_) / T(M_PI);
-    };
-
-    T evaluate (const T d1, const T d2) const {
-        return factor_ * exp(-invdet_ * (pars_[2] * d1 * d1 +
-                                         pars_[0] * d2 * d2 -
-                                         T(2) * pars_[1] * d1 * d2));
-    };
-
-    T get_det () { return det_; };
-
-private:
-    const T* const pars_;
-    T det_, invdet_, factor_;
-};
-
 class KPSFResidual {
 public:
     KPSFResidual (int ntime, int npixels, double *data, double *dim)
@@ -36,9 +12,11 @@ public:
     template <typename T>
     bool operator() (T const* const* pars, T* residuals) const {
         int i, j, ind, ind4, i3;
-        T value;
-        PSF<T> psf(pars[2]);
-        if (psf.get_det() <= T(0.0)) return false;
+        T value, det, invdet, factor, d1, d2;
+        det = pars[3][0] * pars[3][2] - pars[3][1] * pars[3][1];
+        if (det <= T(0.0)) return false;
+        invdet = T(0.5) / det;
+        factor = sqrt(invdet) / T(M_PI);
 
         for (i = 0; i < ntime_; ++i) {
             i3 = 3*i;
@@ -48,9 +26,14 @@ public:
             for (j = 0; j < npixels_; ++j) {
                 ind = i*npixels_+j;
                 ind4 = 4*ind;
-                value = pars[1][j] * pars[0][i3+2] *
-                        psf.evaluate(pars[0][i3]-T(data_[ind4]),
-                                     pars[0][i3+1]-T(data_[ind4+1]));
+
+                d1 = pars[0][i3]-T(data_[ind4]);
+                d2 = pars[0][i3+1]-T(data_[ind4+1]);
+
+                value = pars[2][j] + pars[1][j]*pars[0][i3+2]*factor
+                      * exp(-invdet * (pars[3][2]*d1*d1 + pars[3][0]*d2*d2 -
+                                       T(2)*pars[3][1]*d1*d2));
+
                 residuals[ind] = (T(data_[ind4+2]) - value) * T(data_[ind4+3]);
             }
         }

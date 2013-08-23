@@ -9,6 +9,8 @@ from setuptools import setup, Extension
 include_dirs = [
     "src",
     numpy.get_include(),
+    "/usr/include",
+    "/usr/include/eigen3",
     "/usr/local/include",
     "/usr/local/include/eigen3"
 ]
@@ -24,14 +26,14 @@ libraries = [
     "ccolamd",
     "cholmod",
     "suitesparseconfig",
-    "metis",
+    # "metis",
     "blas",
     "lapack",
     "cxsparse",
-    "protobuf",
+    # "protobuf",
     "gflags",
     "glog",
-    "ceres",
+    "ceres_shared",
 ]
 
 sources = [
@@ -43,7 +45,9 @@ ext = Extension("kpsf._kpsf",
                 sources=sources,
                 include_dirs=include_dirs,
                 library_dirs=library_dirs,
-                libraries=libraries)
+                libraries=libraries,
+                runtime_library_dirs=library_dirs,
+                extra_compile_args=["-fPIC"])
 
 setup(
     name="kpsf",

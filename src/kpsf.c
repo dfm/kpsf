@@ -22,9 +22,9 @@ static char solve_doc[] =
 static PyObject
 *kpsf_py_solve (PyObject *self, PyObject *args)
 {
-    PyObject *data_obj, *dim_obj, *coords_obj, *ff_obj, *psf_obj;
-    if (!PyArg_ParseTuple(args, "OOOOO", &data_obj, &dim_obj, &coords_obj,
-                          &ff_obj, &psf_obj))
+    PyObject *data_obj, *dim_obj, *coords_obj, *ff_obj, *bias_obj, *psf_obj;
+    if (!PyArg_ParseTuple(args, "OOOOOO", &data_obj, &dim_obj, &coords_obj,
+                          &ff_obj, &bias_obj, &psf_obj))
         return NULL;
 
     // Parse the numpy arrays.
@@ -32,13 +32,15 @@ static PyObject
                   *dim_array = PARSE_ARRAY(dim_obj),
                   *coords_array = PARSE_ARRAY(coords_obj),
                   *ff_array = PARSE_ARRAY(ff_obj),
+                  *bias_array = PARSE_ARRAY(bias_obj),
                   *psf_array = PARSE_ARRAY(psf_obj);
     if (data_array == NULL || dim_array == NULL || coords_array == NULL ||
-        ff_array == NULL || psf_array == NULL) {
+        ff_array == NULL || bias_array == NULL || psf_array == NULL) {
         Py_XDECREF(data_array);
         Py_XDECREF(dim_array);
         Py_XDECREF(coords_array);
         Py_XDECREF(ff_array);
+        Py_XDECREF(bias_array);
         Py_XDECREF(psf_array);
         return NULL;
     }
@@ -52,21 +54,23 @@ static PyObject
            *dim = PyArray_DATA(dim_array),
            *coords = PyArray_DATA(coords_array),
            *flat_field = PyArray_DATA(ff_array),
+           *bias = PyArray_DATA(bias_array),
            *psfpars = PyArray_DATA(psf_array);
 
     // Solve using Ceres.
     int info = kpsf_solve(ntime, npixels, data, dim, coords, flat_field,
-                          psfpars, 1);
+                          bias, psfpars, 1);
 
     // Build the output.
-    PyObject *ret = Py_BuildValue ("iOOO", info, coords_array, ff_array,
-                                   psf_array);
+    PyObject *ret = Py_BuildValue ("iOOOO", info, coords_array, ff_array,
+                                   bias_array, psf_array);
 
     // Clean up.
     Py_DECREF(data_array);
     Py_DECREF(dim_array);
     Py_DECREF(coords_array);
     Py_DECREF(ff_array);
+    Py_DECREF(bias_array);
     Py_DECREF(psf_array);
 
     return ret;

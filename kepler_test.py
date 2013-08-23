@@ -28,11 +28,12 @@ com = np.sum(data[:, :, :2] * data[:, :, 2][:, :, None], axis=1) \
 coords = np.hstack((com, np.atleast_2d(np.sum(data[:, :, 2], axis=1)).T))
 psfpars = np.array([0.5, 0.0, 0.5])
 flat_field = np.ones(len(data[0]))
+bias = np.zeros(len(data[0]))
 
 # Plot initial model.
 img = table["FLUX"][0]
 model = kpsf.get_image(img.shape, data[0, :, :2],
-                       coords[0], flat_field, psfpars)
+                       coords[0], flat_field, bias, psfpars)
 
 pl.figure(figsize=(8, 10))
 pl.subplot(211)
@@ -44,9 +45,9 @@ pl.imshow(model, cmap="gray", interpolation="nearest")
 pl.savefig("data.png")
 
 # Do the solve.
-N = 200
+N = 100
 info, coords, ff, psfpars = solve(data[:N], img.shape, coords[:N],
-                                  flat_field, psfpars)
+                                  flat_field, bias, psfpars)
 
 pl.clf()
 f = coords[:, 2]

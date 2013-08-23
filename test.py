@@ -64,7 +64,7 @@ if __name__ == "__main__":
     initial = np.array(truth)
     initial[:, 0] += 0.1 * np.random.randn(N)
     initial[:, 1] += 0.1 * np.random.randn(N)
-    initial[:, 2] += np.random.randn(N)
+    initial[:, 2] = 10 * np.ones(N)  # np.random.randn(N)
 
     info, coords, ff, psfpars = solve(data, [w, h], initial,
                                       np.ones(np.sum(mask)/3.0), psfpars)
@@ -72,6 +72,6 @@ if __name__ == "__main__":
     print(ff)
 
     pl.clf()
-    pl.plot(truth[:, 2])
-    pl.plot(coords[:, 2])
+    pl.plot(truth[:, 2] / np.median(truth[:, 2]))
+    pl.plot(coords[:, 2] / np.median(coords[:, 2]))
     pl.savefig("test.png")

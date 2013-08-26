@@ -9,24 +9,24 @@ using ceres::Solve;
 using ceres::Solver;
 using ceres::Problem;
 using ceres::CostFunction;
-using ceres::DynamicAutoDiffCostFunction;
+using ceres::AutoDiffCostFunction;
 
 int kpsf_solve (int ntime, int npixels, double *data, double *dim,
                 double *coords, double *flat_field, double *bias,
                 double *psfpars, int verbose)
 {
+    int i, j;
     Problem problem;
 
-    DynamicAutoDiffCostFunction<KPSFResidual> *cost =
-        new DynamicAutoDiffCostFunction<KPSFResidual> (
-            new KPSFResidual(ntime, npixels, data, dim));
-
-    cost->AddParameterBlock(3*ntime);
-    cost->AddParameterBlock(npixels);
-    cost->AddParameterBlock(npixels);
-    cost->AddParameterBlock(3);
-    cost->SetNumResiduals(ntime*npixels);
-    problem.AddResidualBlock (cost, NULL, coords, flat_field, bias, psfpars);
+    for (i = 0; i < ntime; ++i) {
+        for (j = 0; j < npixels; ++j) {
+            CostFunction *cost =
+                new AutoDiffCostFunction<PixelResidual, 1, 3, 3, 1> (
+                    new PixelResidual(&(data[(i*npixels+j)*4])));
+            problem.AddResidualBlock(cost, NULL, &(coords[3*i]),
+                                     psfpars, &(flat_field[j]));
+        }
+    }
 
     Solver::Options options;
     options.max_num_iterations = 200;

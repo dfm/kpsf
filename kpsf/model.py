@@ -13,14 +13,23 @@ class PSF(object):
 
     def __init__(self, pars):
         self._pars = pars
-        self._invdet = 0.5 / (pars[0] * pars[2] - pars[1] * pars[1])
-        self._factor = np.sqrt(self._invdet) / np.pi
+
+        norm = 1.0 / (1 + pars[3])
+        self._invdet1 = 0.5 / (pars[0] * pars[2] - pars[1] * pars[1])
+        self._factor1 = norm * np.sqrt(self._invdet1) / np.pi
+
+        self._invdet2 = 0.5 / (pars[4] * pars[6] - pars[5] * pars[5])
+        self._factor2 = norm * pars[3] * np.sqrt(self._invdet2) / np.pi
 
     def __call__(self, dx, dy):
-        return self._factor * np.exp(-self._invdet *
-                                     (self._pars[2] * dx * dx +
-                                      self._pars[0] * dy * dy -
-                                      2 * self._pars[1] * dx * dy))
+        return (self._factor1 * np.exp(-self._invdet1 *
+                                       (self._pars[2] * dx * dx +
+                                        self._pars[0] * dy * dy -
+                                        2 * self._pars[1] * dx * dy))
+                + self._factor2 * np.exp(-self._invdet2 *
+                                         (self._pars[6] * dx * dx +
+                                          self._pars[4] * dy * dy -
+                                          2 * self._pars[5] * dx * dy)))
 
 
 def get_image(shape, pixels, coords, flat_field, bias, psfpars):

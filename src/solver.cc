@@ -21,7 +21,7 @@ int kpsf_solve (int ntime, int npixels, double *data, double *dim,
     for (i = 0; i < ntime; ++i) {
         for (j = 0; j < npixels; ++j) {
             CostFunction *cost =
-                new AutoDiffCostFunction<PixelResidual, 1, 3, 3, 1> (
+                new AutoDiffCostFunction<PixelResidual, 1, 3, NPSFPARS, 1> (
                     new PixelResidual(&(data[(i*npixels+j)*4])));
             problem.AddResidualBlock(cost, NULL, &(coords[3*i]),
                                      psfpars, &(flat_field[j]));
@@ -30,7 +30,7 @@ int kpsf_solve (int ntime, int npixels, double *data, double *dim,
 
     Solver::Options options;
     options.max_num_iterations = 200;
-    options.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
+    options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
     options.dense_linear_algebra_library_type = ceres::LAPACK;
     if (verbose > 0)
         options.minimizer_progress_to_stdout = true;

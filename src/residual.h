@@ -29,14 +29,14 @@ public:
             ind = 4 * k - 1;
             det = psfpars[ind+1]*psfpars[ind+3]-psfpars[ind+2]*psfpars[ind+2];
             if (det <= T(0.0)) return false;
-            invdet = T(0.5) / det;
-            factor = sqrt(invdet);
+            invdet = T(1.0) / det;
+            factor = T(0.5) * sqrt(invdet);
             if (ind > 0) {
                 if (psfpars[ind] < 0.0 || psfpars[ind] > 1.0) return false;
                 factor *= psfpars[ind];
                 norm += psfpars[ind];
             }
-            value += factor * exp(-invdet *
+            value += factor * exp(-T(0.5) * invdet *
                                   (psfpars[ind+3] * d1 * d1
                                    + psfpars[ind+1] * d2 * d2
                                    - T(2) * psfpars[ind+2] * d1 * d2));

@@ -6,6 +6,7 @@ import time
 import kplr
 import kpsf
 from kpsf._kpsf import solve
+from kpsf.model import KeplerQuarter
 import numpy as np
 import matplotlib.pyplot as pl
 
@@ -16,6 +17,11 @@ star = client.star(10592770)
 pixels = star.get_target_pixel_files()[10]
 lc = star.get_light_curves()[10].read()
 table = pixels.read()
+
+model = KeplerQuarter(table["TIME"], table["FLUX"], table["FLUX_ERR"])
+model.fit([0.5, 0.0, 0.5, 0.01, 5.0, 0.0, 5.0])
+
+assert 0
 
 data = np.array([kpsf.reshape_image(flux, ferr)
                  for flux, ferr in zip(table["FLUX"], table["FLUX_ERR"])])

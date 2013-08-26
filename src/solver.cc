@@ -30,7 +30,8 @@ int kpsf_solve (int ntime, int npixels, double *data, double *dim,
 
     Solver::Options options;
     options.max_num_iterations = 200;
-    options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;  // ceres::SPARSE_SCHUR;
+    options.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
+    options.dense_linear_algebra_library_type = ceres::LAPACK;
     if (verbose > 0)
         options.minimizer_progress_to_stdout = true;
 

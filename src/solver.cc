@@ -29,8 +29,8 @@ int kpsf_solve (int ntime, int npixels, double *data, double *dim,
     problem.AddResidualBlock (cost, NULL, coords, flat_field, bias, psfpars);
 
     Solver::Options options;
-    options.max_num_iterations = 100;
-    options.linear_solver_type = ceres::SPARSE_SCHUR;
+    options.max_num_iterations = 200;
+    options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;  // ceres::SPARSE_SCHUR;
     if (verbose > 0)
         options.minimizer_progress_to_stdout = true;
 

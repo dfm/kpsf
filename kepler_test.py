@@ -46,8 +46,9 @@ pl.savefig("data.png")
 
 # Do the solve.
 N = 100
-info, coords, ff, psfpars = solve(data[:N], img.shape, coords[:N],
-                                  flat_field, bias, psfpars)
+info, coords, ff, bias, psfpars = solve(data[:N], img.shape, coords[:N],
+                                        flat_field, bias, psfpars)
+print(bias)
 
 pl.clf()
 f = coords[:, 2]

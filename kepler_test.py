@@ -19,7 +19,12 @@ lc = star.get_light_curves()[10].read()
 table = pixels.read()
 
 model = KeplerQuarter(table["TIME"], table["FLUX"], table["FLUX_ERR"])
-model.fit([0.5, 0.0, 0.5, 0.01, 5.0, 0.0, 5.0])
+model.fit([0.5, 0.0, 0.5])
+# model.fit([0.51680217, 0.34962137, 0.5646652, 0.99999703, 3.69131781,
+#            4.38718537, 6.56615805])
+# model.fit([0.64397417, 0.5551348, 0.94233924, 0.15890698, 2.91014788,
+#            4.12818895, 7.7063727])
+# model.fit([0.5, 0.2, 0.3, 0.1, 0.5, 0.0, 0.5])
 
 assert 0
 

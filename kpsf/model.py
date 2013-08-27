@@ -81,12 +81,17 @@ class KeplerQuarter(object):
                                                ff,
                                                bias,
                                                np.array(psfpars))
+        print(psfpars)
 
         # Plot the final model.
-        fig = self.plot_model(data[0], final[0], PSF(psfpars), ff)
-        fig.savefig("final.png")
+        vmin, vmax = np.min(data[:, :, 2]), np.max(data[:, :, 2])
+        psf = PSF(psfpars)
+        for i in range(len(data)):
+            print(final[i])
+            fig = self.plot_model(data[i], final[i], psf, ff)
+            fig.savefig("plots/{0:04d}.png".format(i))
 
-    def plot_model(self, data, coords, psf, ff):
+    def plot_model(self, data, coords, psf, ff, vmin=None, vmax=None):
         # Compute the model given the parameters.
         x, y = np.array(data[:, 0], dtype=int), np.array(data[:, 1], dtype=int)
         d1, d2 = x - coords[0], y - coords[1]
@@ -100,14 +105,16 @@ class KeplerQuarter(object):
         fig = pl.figure(figsize=(10, 10))
 
         ax = fig.add_subplot(221)
-        pl.imshow(img, cmap="gray", interpolation="nearest")
+        pl.imshow(np.log10(img), cmap="gray", interpolation="nearest",
+                  vmin=vmin, vmax=vmax)
         pl.colorbar()
-        ax.set_title("data")
+        ax.set_title("log10(data)")
 
         ax = fig.add_subplot(222)
-        pl.imshow(model, cmap="gray", interpolation="nearest")
+        pl.imshow(np.log10(model), cmap="gray", interpolation="nearest",
+                  vmin=vmin, vmax=vmax)
         pl.colorbar()
-        ax.set_title("model")
+        ax.set_title("log10(model)")
 
         ax = fig.add_subplot(223)
         pl.imshow(img - model, cmap="gray", interpolation="nearest")
@@ -119,7 +126,7 @@ class KeplerQuarter(object):
 
 class PSF(object):
 
-    def __init__(self, pars, ngaussians=2):
+    def __init__(self, pars, ngaussians=1):
         self._ngaussians = ngaussians
         self._pars = pars
 
@@ -133,7 +140,7 @@ class PSF(object):
             self._invdet[k] = 1.0 / self._det[k]
             self._factor[k] = 0.5 * np.sqrt(self._invdet[k])
             if ind > 0:
-                self._factor *= pars[ind]
+                self._factor[k] *= pars[ind]
                 norm += pars[ind]
         self._factor /= norm * np.pi
 
@@ -145,7 +152,6 @@ class PSF(object):
                                               (self._pars[ind+3]*d1*d1
                                                + self._pars[ind+1]*d2*d2
                                                - 2*self._pars[ind+2]*d1*d2))
-        print(np.sum(value))
         return value
 
 

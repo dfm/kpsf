@@ -15,7 +15,7 @@ find_package (Ceres REQUIRED)
 include_directories (${CERES_INCLUDES})
 
 # Add cfitsio.
-find_package (cfitsio REQUIRED)
+find_package (Cfitsio REQUIRED)
 include_directories (${CFITSIO_INCLUDES})
 
 # Add the solver.

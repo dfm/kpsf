@@ -57,38 +57,55 @@ private:
         int ind;
         double value = 0.0, norm = 1.0;
         for (ind = 0; ind < N_PSF_BASIS - 1; ++ind) {
+            if (coeffs[ind] < 0.0 || coeffs[ind] > 1.0) return false;
             value += coeffs[ind] * (*psf_basis_)[ind](i, j);
             norm -= coeffs[ind];
         }
+        if (norm < 0.0) return false;
         value += norm * (*psf_basis_)[N_PSF_BASIS-1](i, j);
         return value;
     };
 
 };
 
-class KeplerPSF {
+class KeplerPSFResidual {
 
 public:
 
-    typedef NumericDiffFunctor<LanczosInterpolator, ceres::CENTRAL, N_PSF_COEFF, 1, 1, 1>
+    typedef NumericDiffFunctor<LanczosInterpolator, ceres::CENTRAL, 1, N_PSF_COEFF, 1, 1>
             LanczosInterpolatorFunctor;
 
-    KeplerPSF (int i, int j, int order, vector<MatrixXd> * psf_basis)
-        : i_(i), j_(j)
+    KeplerPSFResidual (int i, int j, double mean, double std,
+                       int order, vector<MatrixXd> * psf_basis)
+        : i_(i), j_(j), mean_(mean), istd_(1.0 / fabs(std))
     {
         interpolator_.reset(new LanczosInterpolatorFunctor(new LanczosInterpolator(order, psf_basis)));
     };
 
     template <typename T>
-    T operator() (const T* sx, const T* sy, const T* coeffs, T* result) {
-        T xi = T(OVERSAMPLE) * (T(i_) - *sx) + T(CENTER_X),
-          yi = T(OVERSAMPLE) * (T(j_) - *sy) + T(CENTER_Y);
-        return (*interpolator_)(coeffs, &xi, &yi, result);
+    bool operator() (const T* coords, const T* coeffs,
+                     const T* background, const T* response,
+                     T* residuals) const {
+        // Compute the pixel position in PRF coordinates.
+        T xi = T(OVERSAMPLE) * (T(i_) - coords[1]) + T(CENTER_X),
+          yi = T(OVERSAMPLE) * (T(j_) - coords[2]) + T(CENTER_Y),
+          value;
+
+        // Interpolate the PSF to the position of the pixel.
+        if (! ((*interpolator_)(coeffs, &xi, &yi, &value))) return false;
+
+        // Incorporate the response and background.
+        value = (*response) * (coords[0] * value + *background);
+
+        // Compute the residuals.
+        residuals[0] = (value - T(mean_)) * T(istd_);
+        return true;
     };
 
 private:
 
     int i_, j_;
+    double mean_, istd_;
     ceres::internal::scoped_ptr<LanczosInterpolatorFunctor> interpolator_;
 
 };

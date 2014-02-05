@@ -7,7 +7,7 @@
 #include <Eigen/Dense>
 #include <ceres/numeric_diff_functor.h>
 
-#include "prf.hpp"
+#include "prf.h"
 
 using std::vector;
 using Eigen::MatrixXd;
@@ -56,7 +56,7 @@ private:
     double evaluate (const double* coeffs, int i, int j) const {
         int ind;
         double value = 0.0, norm = 1.0;
-        for (ind = 0; ind < N_PSF_BASIS - 1; ++ind) {
+        for (ind = 0; ind < N_PSF_BASIS-1; ++ind) {
             if (coeffs[ind] < 0.0 || coeffs[ind] > 1.0) return false;
             value += coeffs[ind] * (*psf_basis_)[ind](i, j);
             norm -= coeffs[ind];
@@ -72,7 +72,7 @@ class KeplerPSFResidual {
 
 public:
 
-    typedef NumericDiffFunctor<LanczosInterpolator, ceres::CENTRAL, 1, N_PSF_COEFF, 1, 1>
+    typedef NumericDiffFunctor<LanczosInterpolator, ceres::CENTRAL, 1, N_PSF_BASIS-1, 1, 1>
             LanczosInterpolatorFunctor;
 
     KeplerPSFResidual (int i, int j, double mean, double std,

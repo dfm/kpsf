@@ -15,7 +15,6 @@ namespace kpsf {
 // models.
 //
 #define N_PSF_BASIS 5
-#define N_PSF_COEFF 4
 #define OVERSAMPLE  50
 #define DIM_X       550
 #define DIM_Y       550

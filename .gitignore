@@ -3,6 +3,5 @@
 *.so
 *.pyc
 *.png
-*.txt
 .syntastic_c_config
 build

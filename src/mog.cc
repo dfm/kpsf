@@ -18,7 +18,7 @@ using ceres::AutoDiffCostFunction;
 
 using kpsf::load_prfs;
 
-#define N_GAUSSIANS 2
+#define N_GAUSSIANS 4
 
 class MOGResidual {
 
@@ -81,11 +81,11 @@ int main ()
     // Initialize the parameters.
     VectorXd params(6*N_GAUSSIANS);
     for (int k = 0; k < N_GAUSSIANS; ++k) {
-        params(6*k)   = 2500.0 / (k + 1);
+        params(6*k)   = 3000.0 / N_GAUSSIANS;
         params(6*k+1) = CENTER_X;
         params(6*k+2) = CENTER_Y;
         params(6*k+3) = (k + 1) * CENTER_X * CENTER_X;
-        params(6*k+4) = 10.0;
+        params(6*k+4) = 100.0;
         params(6*k+5) = (k + 1) * CENTER_Y * CENTER_Y;
     }
 
@@ -98,9 +98,9 @@ int main ()
 
     // Set up the solver.
     Solver::Options options;
-    options.max_num_iterations = 200;
-    options.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
-    // options.linear_solver_type = ceres::DENSE_SCHUR;
+    options.max_num_iterations = 50 * N_GAUSSIANS;
+    // options.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
+    options.linear_solver_type = ceres::DENSE_SCHUR;
     options.dense_linear_algebra_library_type = ceres::LAPACK;
     options.minimizer_progress_to_stdout = true;
 

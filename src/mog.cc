@@ -169,17 +169,14 @@ public:
             if (amp <= T(0)) return false;
 
             // Ensure that the centers are in the frame.
-            T xpos = T(OVERSAMPLE) * params[PP_GAUSSIAN*k+1],
-              ypos = T(OVERSAMPLE) * params[PP_GAUSSIAN*k+2];
-            if (xpos < T(0) || xpos >= T(DIM_X) ||
-                ypos < T(0) || ypos >= T(DIM_Y)) return false;
+            T xpos = params[PP_GAUSSIAN*k+1],
+              ypos = params[PP_GAUSSIAN*k+2];
+            if (xpos < T(0) || xpos >= T(DIM_X)/T(OVERSAMPLE) ||
+                ypos < T(0) || ypos >= T(DIM_Y)/T(OVERSAMPLE)) return false;
 
             // Compute the determinant and make sure that it's positive.
-            T s2 = T(OVERSAMPLE * OVERSAMPLE),
-              cov[] = {s2 * params[PP_GAUSSIAN*k+3],
-                       s2 * params[PP_GAUSSIAN*k+4],
-                       s2 * params[PP_GAUSSIAN*k+5]},
-              det = cov[0] * cov[2] - cov[1] * cov[1];
+            const T* cov = &(params[PP_GAUSSIAN*k+3]);
+            T det = cov[0] * cov[2] - cov[1] * cov[1];
             if (det <= T(0)) return false;
 
             // Pre-compute the normalization factor.
@@ -188,8 +185,8 @@ public:
             // Loop over pixels and compute the model value.
             for (int i = 0; i < DIM_X; ++i) {
                 for (int j = 0; j < DIM_Y; ++j) {
-                    T dx = xpos - T(i),
-                      dy = ypos - T(j),
+                    T dx = xpos - T(i) / T(OVERSAMPLE),
+                      dy = ypos - T(j) / T(OVERSAMPLE),
                       x = cov[2] * dx - cov[1] * dy,
                       y = cov[0] * dy - cov[1] * dx,
                       v = (dx * x + dy * y) / det;
@@ -225,12 +222,12 @@ int main ()
         // Initialize the parameters.
         VectorXd params(PP_GAUSSIAN*N_GAUSSIANS);
         for (int k = 0; k < N_GAUSSIANS; ++k) {
-            params(PP_GAUSSIAN*k)   = 300.0 / (k + 1);
-            params(PP_GAUSSIAN*k+1) = CENTER_X / OVERSAMPLE;
-            params(PP_GAUSSIAN*k+2) = CENTER_Y / OVERSAMPLE;
-            params(PP_GAUSSIAN*k+3) = (k + 1) * 2.0;
+            params(PP_GAUSSIAN*k)   = 1.0 / (k + 1) / N_GAUSSIANS;
+            params(PP_GAUSSIAN*k+1) = double(CENTER_X) / OVERSAMPLE;
+            params(PP_GAUSSIAN*k+2) = double(CENTER_Y) / OVERSAMPLE;
+            params(PP_GAUSSIAN*k+3) = (k + 1) * 0.2;
             params(PP_GAUSSIAN*k+4) = 0.0;
-            params(PP_GAUSSIAN*k+5) = (k + 1) * 2.0;
+            params(PP_GAUSSIAN*k+5) = (k + 1) * 0.2;
         }
 
         // Set up the problem.
@@ -259,6 +256,8 @@ int main ()
         sprintf(extname, "MOG%d", i+1);
         status = write_mog(outfn, params, i+1, extname);
         if (status) return status;
+
+        return 0;
     }
 
     return 0;

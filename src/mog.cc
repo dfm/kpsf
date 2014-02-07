@@ -83,7 +83,7 @@ int load_prfs (const char *fn, vector<MatrixXd>* prfs)
 //
 // Write the MOG representation of a PRF image to a file.
 //
-int write_mog (const char *fn, VectorXd params, int hdu)
+int write_mog (const char *fn, VectorXd params, int hdu, const char* extname)
 {
     fitsfile *f;
     int status = 0;
@@ -101,7 +101,12 @@ int write_mog (const char *fn, VectorXd params, int hdu)
             return status;
         }
 
-        // Move to the correct HDU.
+        // Move to the previous HDU.
+        int hdutype;
+        if (fits_movabs_hdu(f, hdu-1, &hdutype, &status)) {
+            fits_report_error(stderr, status);
+            return status;
+        }
     }
 
     // Create a new binary table.
@@ -109,7 +114,7 @@ int write_mog (const char *fn, VectorXd params, int hdu)
         * tform[] = {"1D",  "1D",   "1D",   "1D",   "1D",    "1D"},
         * tunit[] = {"\0",  "\0",   "\0",   "\0",   "\0",    "\0"};
     if (fits_create_tbl(f, BINARY_TBL, N_GAUSSIANS, PP_GAUSSIAN, ttype, tform,
-                        tunit, "MOG", &status)) {
+                        tunit, extname, &status)) {
         fits_report_error(stderr, status);
         return status;
     }
@@ -216,40 +221,45 @@ int main ()
     status = load_prfs(infn, &prfs);
     if (status) return status;
 
-    // Initialize the parameters.
-    VectorXd params(PP_GAUSSIAN*N_GAUSSIANS);
-    for (int k = 0; k < N_GAUSSIANS; ++k) {
-        params(PP_GAUSSIAN*k)   = 300.0 / (k + 1);
-        params(PP_GAUSSIAN*k+1) = CENTER_X / OVERSAMPLE;
-        params(PP_GAUSSIAN*k+2) = CENTER_Y / OVERSAMPLE;
-        params(PP_GAUSSIAN*k+3) = (k + 1) * 2.0;
-        params(PP_GAUSSIAN*k+4) = 0.0;
-        params(PP_GAUSSIAN*k+5) = (k + 1) * 2.0;
+    for (int i = 0; i < N_PSF_BASIS; ++i) {
+        // Initialize the parameters.
+        VectorXd params(PP_GAUSSIAN*N_GAUSSIANS);
+        for (int k = 0; k < N_GAUSSIANS; ++k) {
+            params(PP_GAUSSIAN*k)   = 300.0 / (k + 1);
+            params(PP_GAUSSIAN*k+1) = CENTER_X / OVERSAMPLE;
+            params(PP_GAUSSIAN*k+2) = CENTER_Y / OVERSAMPLE;
+            params(PP_GAUSSIAN*k+3) = (k + 1) * 2.0;
+            params(PP_GAUSSIAN*k+4) = 0.0;
+            params(PP_GAUSSIAN*k+5) = (k + 1) * 2.0;
+        }
+
+        // Set up the problem.
+        Problem problem;
+        CostFunction *cost =
+            new AutoDiffCostFunction<MOGResidual, DIM_X*DIM_Y,
+                                     PP_GAUSSIAN*N_GAUSSIANS> (
+                new MOGResidual (prfs[i]));
+        problem.AddResidualBlock(cost, NULL, &(params(0)));
+
+        // Set up the solver.
+        Solver::Options options;
+        options.max_num_iterations = 20 * N_GAUSSIANS;
+        options.function_tolerance = 1e-5;
+        // options.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
+        options.linear_solver_type = ceres::DENSE_SCHUR;
+        options.dense_linear_algebra_library_type = ceres::LAPACK;
+        options.minimizer_progress_to_stdout = true;
+
+        Solver::Summary summary;
+        Solve(options, &problem, &summary);
+        std::cout << summary.BriefReport() << std::endl;
+
+        std::cout << "Writing output file: " << outfn << std::endl;
+        char extname[10];
+        sprintf(extname, "MOG%d", i+1);
+        status = write_mog(outfn, params, i+1, extname);
+        if (status) return status;
     }
-
-    // Set up the problem.
-    Problem problem;
-    CostFunction *cost =
-        new AutoDiffCostFunction<MOGResidual, DIM_X*DIM_Y, PP_GAUSSIAN*N_GAUSSIANS> (
-            new MOGResidual (prfs[1]));
-    problem.AddResidualBlock(cost, NULL, &(params(0)));
-
-    // Set up the solver.
-    Solver::Options options;
-    options.max_num_iterations = 20 * N_GAUSSIANS;
-    options.function_tolerance = 1e-5;
-    // options.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
-    options.linear_solver_type = ceres::DENSE_SCHUR;
-    options.dense_linear_algebra_library_type = ceres::LAPACK;
-    options.minimizer_progress_to_stdout = true;
-
-    Solver::Summary summary;
-    Solve(options, &problem, &summary);
-    std::cout << summary.BriefReport() << std::endl;
-
-    std::cout << "Writing output file: " << outfn << std::endl;
-    status = write_mog(outfn, params);
-    if (status) return status;
 
     return 0;
 }

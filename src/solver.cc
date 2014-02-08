@@ -77,9 +77,10 @@ int main ()
                     CostFunction* cost =
                         new AutoDiffCostFunction<MixturePixelResidual, 1, 3,
                                                  N_PSF_BASIS, 1, 1> (res);
-                    CauchyLoss* loss = new CauchyLoss(500.0);
-                    problem.AddResidualBlock(cost, loss, &(coords[t](0)),
-                                             coeffs, &bg, &(flat(i, j)));
+                    CauchyLoss* loss = new CauchyLoss(200.0);
+                    problem.AddResidualBlock(cost, loss,
+                                             &(coords[t](0)), coeffs, &bg,
+                                             &(flat(i, j)));
                 }
             }
         }
@@ -88,12 +89,12 @@ int main ()
     // Add regularization terms.
     CostFunction* sum_to_one =
         new AutoDiffCostFunction<SumToOneResidual, 1, N_PSF_BASIS> (
-            new SumToOneResidual(N_PSF_BASIS, 0.001));
+            new SumToOneResidual(N_PSF_BASIS, 0.01));
     problem.AddResidualBlock(sum_to_one, NULL, coeffs);
 
     CostFunction* l2_coeffs =
         new AutoDiffCostFunction<L2Residual, N_PSF_BASIS, N_PSF_BASIS> (
-            new L2Residual(N_PSF_BASIS, 0.0, 0.001));
+            new L2Residual(N_PSF_BASIS, 0.0, 0.01));
     problem.AddResidualBlock(l2_coeffs, NULL, coeffs);
 
     for (int i = 0; i < nx; ++i) {
@@ -101,7 +102,7 @@ int main ()
             if (flux[0](i, j) >= 0.0) {
                 CostFunction* l2_flat =
                     new AutoDiffCostFunction<L2Residual, 1, 1> (
-                        new L2Residual(1, 1.0, 0.001));
+                        new L2Residual(1, 1.0, 0.01));
                 problem.AddResidualBlock(l2_flat, NULL, &(flat(i, j)));
             }
         }

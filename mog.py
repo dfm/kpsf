@@ -29,10 +29,9 @@ if __name__ == "__main__":
 
             x, y = np.meshgrid(np.arange(550)/50., np.arange(550)/50.)
             img = np.zeros((550, 550))
-            print(275 / 50.)
             for p in params:
                 print(p)
-                img += eval_gaussian(x, y, p)
+                img += eval_gaussian(x-5.5, y-5.5, p)
 
             d = "mog/{0}".format(i)
             try:
@@ -41,8 +40,7 @@ if __name__ == "__main__":
                 pass
 
             pl.clf()
-            vmin, vmax = None, None
-            # vmin, vmax = 0.05, 0.2
+            vmin, vmax = 0.08, 0.2
             pl.imshow(data, cmap="gray", interpolation="nearest", vmin=vmin,
                       vmax=vmax)
             pl.xlim(0, 550)
@@ -53,7 +51,7 @@ if __name__ == "__main__":
             pl.clf()
             pl.imshow(img, cmap="gray", interpolation="nearest", vmin=vmin,
                       vmax=vmax)
-            pl.plot(params[1::6], params[2::6], "+r")
+            pl.plot(params["xpos"]*50+275, params["ypos"]*50+275, "+r")
             pl.xlim(0, 550)
             pl.ylim(0, 550)
             pl.colorbar()

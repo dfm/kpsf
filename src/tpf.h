@@ -5,7 +5,11 @@
 #include <fitsio.h>
 #include <Eigen/Dense>
 
+// Ignore string warnings. It's cfitsio's fault!
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+
 using std::vector;
+using Eigen::VectorXd;
 using Eigen::MatrixXd;
 using Eigen::MatrixXi;
 
@@ -14,7 +18,7 @@ namespace kpsf {
 //
 // Read a Kepler target pixel file into a vector of images.
 //
-int load_tpf (const char* fn, vector<MatrixXd>* flux, vector<MatrixXd>* ferr,
+int load_tpf (const char* fn, vector<MatrixXd>* flux, vector<double>* time,
               long* ccd)
 {
     fitsfile *f;
@@ -62,29 +66,31 @@ int load_tpf (const char* fn, vector<MatrixXd>* flux, vector<MatrixXd>* ferr,
     }
 
     // Read the flux and uncertainty columns.
-    int anynull;
-    double nullval = -1;
+    int anynull, count = 0;
+    double nullval = -1, t;
     *flux = vector<MatrixXd>(0);
-    *ferr = vector<MatrixXd>(0);
+    *time = vector<double>(0);
     for (int i = 0; i < nrows; ++i) {
+
+        if (i >= 1000) break;
+
         MatrixXd tmp(dim[0], dim[1]);
-        if (fits_read_col(f, TDOUBLE, 5, i+1, 1, dim[0]*dim[1], &nullval,
-                          &(tmp(0, 0)), &anynull, &status)) {
+        if (fits_read_col(f, TDOUBLE, 4, i+1, 1, dim[0]*dim[1], &nullval,
+                        &(tmp(0, 0)), &anynull, &status)) {
             fits_report_error(stderr, status);
             return status;
         }
 
         if (tmp.sum() > 0) {
             (*flux).push_back(tmp);
-            if (fits_read_col(f, TDOUBLE, 6, i+1, 1, dim[0]*dim[1], &nullval,
-                            &(tmp(0, 0)), &anynull, &status)) {
+
+            if (fits_read_col(f, TDOUBLE, 1, i+1, 1, 1, &nullval, &t,
+                              &anynull, &status)) {
                 fits_report_error(stderr, status);
                 return status;
             }
-            (*ferr).push_back(tmp);
+            (*time).push_back(double(t));
         }
-
-        if (i > 500) break;
     }
 
     // Close the file and clean up.

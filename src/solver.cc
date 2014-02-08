@@ -3,9 +3,8 @@
 
 #include <ceres/ceres.h>
 
-#include "prf.h"
 #include "tpf.h"
-#include "residual.h"
+#include "psf.h"
 
 using std::vector;
 
@@ -15,6 +14,7 @@ using Eigen::VectorXd;
 using ceres::Solve;
 using ceres::Solver;
 using ceres::Problem;
+using ceres::CauchyLoss;
 using ceres::CostFunction;
 using ceres::AutoDiffCostFunction;
 
@@ -26,14 +26,15 @@ int main ()
 
     // Load the Target Pixel file.
     long ccd;
-    vector<MatrixXd> flux, ferr;
-    status = load_tpf("../data/kplr009002278-2010174085026_lpd-targ.fits.gz", &flux, &ferr, &ccd);
+    vector<MatrixXd> flux;
+    vector<double> time;
+    status = load_tpf("../data/kplr009002278-2010174085026_lpd-targ.fits.gz",
+                      &flux, &time, &ccd);
     if (status) return status;
 
-    // Load the PRF files.
-    vector<MatrixXd> prfs;
-    status = load_prfs("../data/kplr07.4_2011265_prf.fits", &prfs);
-    if (status) return status;
+    // Load the PSF basis.
+    MixtureBasis* basis =
+        new MixtureBasis("../data/kplr07.4_2011265_prf.mog.fits");
 
     // Allocate the parameter lists.
     int nt = flux.size(),
@@ -41,7 +42,7 @@ int main ()
         ny = flux[0].cols();
     MatrixXd flat = MatrixXd::Ones(nx, ny);
     vector<VectorXd> coords(nt);
-    double coeffs[] = {0.2, 0.2, 0.2, 0.2},
+    double coeffs[] = {0.2, 0.2, 0.2, 0.2, 0.2},
            bg = 0.0;
 
     // Initialize the coordinates.
@@ -71,32 +72,56 @@ int main ()
         for (int i = 0; i < nx; ++i) {
             for (int j = 0; j < ny; ++j) {
                 if (flux[t](i, j) >= 0.0) {
-                    KeplerPSFResidual* res = new KeplerPSFResidual (i, j, flux[t](i, j), ferr[t](i, j), 3, &prfs);
+                    MixturePixelResidual* res =
+                        new MixturePixelResidual (basis, i, j, flux[t](i, j));
                     CostFunction* cost =
-                        new AutoDiffCostFunction<KeplerPSFResidual, 1, 3, N_PSF_BASIS-1, 1, 1> (res);
-                    problem.AddResidualBlock(cost, NULL, &(coords[t](0)), coeffs, &bg, &(flat(i, j)));
-
-                    /* double value; */
-                    /* (*res)(&(coords[t](0)), coeffs, &bg, &(flat(i, j)), &value); */
-                    /* std::cout << value << " "; */
+                        new AutoDiffCostFunction<MixturePixelResidual, 1, 3,
+                                                 N_PSF_BASIS, 1, 1> (res);
+                    CauchyLoss* loss = new CauchyLoss(500.0);
+                    problem.AddResidualBlock(cost, loss, &(coords[t](0)),
+                                             coeffs, &bg, &(flat(i, j)));
                 }
             }
-            /* std::cout << std::endl; */
         }
-        /* return 0; */
+    }
+
+    // Add regularization terms.
+    CostFunction* sum_to_one =
+        new AutoDiffCostFunction<SumToOneResidual, 1, N_PSF_BASIS> (
+            new SumToOneResidual(N_PSF_BASIS, 0.001));
+    problem.AddResidualBlock(sum_to_one, NULL, coeffs);
+
+    CostFunction* l2_coeffs =
+        new AutoDiffCostFunction<L2Residual, N_PSF_BASIS, N_PSF_BASIS> (
+            new L2Residual(N_PSF_BASIS, 0.0, 0.001));
+    problem.AddResidualBlock(l2_coeffs, NULL, coeffs);
+
+    for (int i = 0; i < nx; ++i) {
+        for (int j = 0; j < ny; ++j) {
+            if (flux[0](i, j) >= 0.0) {
+                CostFunction* l2_flat =
+                    new AutoDiffCostFunction<L2Residual, 1, 1> (
+                        new L2Residual(1, 1.0, 0.001));
+                problem.AddResidualBlock(l2_flat, NULL, &(flat(i, j)));
+            }
+        }
     }
 
     // Set up the solver.
     Solver::Options options;
-    options.max_num_iterations = 200;
+    options.max_num_iterations = 1000;
     options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
     options.dense_linear_algebra_library_type = ceres::LAPACK;
     options.minimizer_progress_to_stdout = true;
 
+    // Do the solve and report the results.
     Solver::Summary summary;
     Solve(options, &problem, &summary);
-
     std::cout << summary.BriefReport() << std::endl;
 
-    return 0;
+    // Save the results.
+    status = write_results ("../test.fits", time, flat, coords, bg, coeffs);
+
+    delete basis;
+    return status;
 }

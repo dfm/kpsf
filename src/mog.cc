@@ -124,8 +124,8 @@ int write_mog (const char *fn, VectorXd params, int hdu, const char* extname)
              xvar(N_GAUSSIANS), covar(N_GAUSSIANS), yvar(N_GAUSSIANS);
     for (int i = 0; i < N_GAUSSIANS; ++i) {
         amp(i)   = params(PP_GAUSSIAN*i);
-        xpos(i)  = params(PP_GAUSSIAN*i + 1);
-        ypos(i)  = params(PP_GAUSSIAN*i + 2);
+        xpos(i)  = params(PP_GAUSSIAN*i + 1) - double(CENTER_X) / OVERSAMPLE;
+        ypos(i)  = params(PP_GAUSSIAN*i + 2) - double(CENTER_Y) / OVERSAMPLE;
         xvar(i)  = params(PP_GAUSSIAN*i + 3);
         covar(i) = params(PP_GAUSSIAN*i + 4);
         yvar(i)  = params(PP_GAUSSIAN*i + 5);
@@ -256,8 +256,6 @@ int main ()
         sprintf(extname, "MOG%d", i+1);
         status = write_mog(outfn, params, i+1, extname);
         if (status) return status;
-
-        return 0;
     }
 
     return 0;

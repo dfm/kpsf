@@ -77,7 +77,7 @@ int main ()
                     CostFunction* cost =
                         new AutoDiffCostFunction<MixturePixelResidual, 1, 3,
                                                  N_PSF_BASIS, 1, 1> (res);
-                    CauchyLoss* loss = new CauchyLoss(200.0);
+                    CauchyLoss* loss = new CauchyLoss(100.0);
                     problem.AddResidualBlock(cost, loss,
                                              &(coords[t](0)), coeffs, &bg,
                                              &(flat(i, j)));

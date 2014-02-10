@@ -4,6 +4,7 @@
 
 #include <fitsio.h>
 #include <ceres/ceres.h>
+#include <gflags/gflags.h>
 
 // Ignore string warnings. It's cfitsio's fault!
 #pragma GCC diagnostic ignored "-Wwrite-strings"
@@ -35,6 +36,11 @@ using ceres::AutoDiffCostFunction;
 //
 #define N_GAUSSIANS 3
 #define PP_GAUSSIAN 6
+
+//
+// Command line arguments.
+//
+DEFINE_string(input_filename, "", "The path to the input PRF file.");
 
 //
 // Read in the Kepler PRF basis images from a given FITS file. Returns a
@@ -205,8 +211,15 @@ private:
 
 
 
-int main ()
+int main (int argc, char **argv)
 {
+    // Parse the command line arguments.
+    google::ParseCommandLineFlags(&argc, &argv, true);
+    if (FLAGS_input_filename == "") {
+        std::cerr << "You must provide an initial file for now." << std::endl;
+        return -1;
+    }
+
     int status;
 
     // Format the filenames.

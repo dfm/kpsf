@@ -71,9 +71,6 @@ int load_tpf (const char* fn, vector<MatrixXd>* flux, vector<double>* time,
     *flux = vector<MatrixXd>(0);
     *time = vector<double>(0);
     for (int i = 0; i < nrows; ++i) {
-
-        if (i >= 1000) break;
-
         MatrixXd tmp(dim[0], dim[1]);
         if (fits_read_col(f, TDOUBLE, 4, i+1, 1, dim[0]*dim[1], &nullval,
                         &(tmp(0, 0)), &anynull, &status)) {

@@ -4,7 +4,6 @@
 
 #include <fitsio.h>
 #include <ceres/ceres.h>
-#include <gflags/gflags.h>
 
 // Ignore string warnings. It's cfitsio's fault!
 #pragma GCC diagnostic ignored "-Wwrite-strings"
@@ -32,15 +31,11 @@ using ceres::AutoDiffCostFunction;
 #define CENTER_Y    275
 
 //
-// The number of Gaussians in our representation.
+// The number of Gaussians in our representation and the number of parameters
+// per Gaussian.
 //
 #define N_GAUSSIANS 3
 #define PP_GAUSSIAN 6
-
-//
-// Command line arguments.
-//
-DEFINE_string(input_filename, "", "The path to the input PRF file.");
 
 //
 // Read in the Kepler PRF basis images from a given FITS file. Returns a
@@ -209,26 +204,20 @@ private:
 
 };
 
-
-
 int main (int argc, char **argv)
 {
-    // Parse the command line arguments.
-    google::ParseCommandLineFlags(&argc, &argv, true);
-    if (FLAGS_input_filename == "") {
-        std::cerr << "You must provide an initial file for now." << std::endl;
+    // Check the command line arguments.
+    if (argc != 3) {
+        std::cerr << "Incorrect number of command line arguments\n";
+        std::cerr << "    Usage: " << argv[0] << " /path/to/prf.fits "
+                  << "/path/to/output.mog.fits\n";
         return -1;
     }
 
-    int status;
-
-    // Format the filenames.
-    const char* infn = "../data/kplr07.4_2011265_prf.fits",
-              * outfn = "../data/kplr07.4_2011265_prf.mog.fits";
-
     // Load the PRF files.
+    int status;
     vector<MatrixXd> prfs;
-    status = load_prfs(infn, &prfs);
+    status = load_prfs(argv[1], &prfs);
     if (status) return status;
 
     for (int i = 0; i < N_PSF_BASIS; ++i) {
@@ -255,7 +244,6 @@ int main (int argc, char **argv)
         Solver::Options options;
         options.max_num_iterations = 20 * N_GAUSSIANS;
         options.function_tolerance = 1e-5;
-        // options.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
         options.linear_solver_type = ceres::DENSE_SCHUR;
         options.dense_linear_algebra_library_type = ceres::LAPACK;
         options.minimizer_progress_to_stdout = true;
@@ -263,11 +251,11 @@ int main (int argc, char **argv)
         Solver::Summary summary;
         Solve(options, &problem, &summary);
         std::cout << summary.BriefReport() << std::endl;
+        std::cout << "Writing output file: " << argv[1] << std::endl;
 
-        std::cout << "Writing output file: " << outfn << std::endl;
         char extname[10];
         sprintf(extname, "MOG%d", i+1);
-        status = write_mog(outfn, params, i+1, extname);
+        status = write_mog(argv[1], params, i+1, extname);
         if (status) return status;
     }
 

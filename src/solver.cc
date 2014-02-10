@@ -20,21 +20,28 @@ using ceres::AutoDiffCostFunction;
 
 using namespace kpsf;
 
-int main ()
+int main (int argc, char **argv)
 {
-    int status;
+    // Check the command line arguments.
+    if (argc != 3) {
+        std::cerr << "Incorrect number of command line arguments\n";
+        std::cerr << "    Usage: " << argv[0]
+                  << " /path/to/psf.mog.fits"
+                  << " /path/to/target_pixels.fits.gz"
+                  << " /path/to/output.fits\n";
+        return -1;
+    }
 
     // Load the Target Pixel file.
+    int status;
     long ccd;
     vector<MatrixXd> flux;
     vector<double> time;
-    status = load_tpf("../data/kplr009002278-2010174085026_lpd-targ.fits.gz",
-                      &flux, &time, &ccd);
+    status = load_tpf(argv[1], &flux, &time, &ccd);
     if (status) return status;
 
     // Load the PSF basis.
-    MixtureBasis* basis =
-        new MixtureBasis("../data/kplr07.4_2011265_prf.mog.fits");
+    MixtureBasis* basis = new MixtureBasis(argv[2]);
 
     // Allocate the parameter lists.
     int nt = flux.size(),
@@ -121,7 +128,7 @@ int main ()
     std::cout << summary.BriefReport() << std::endl;
 
     // Save the results.
-    status = write_results ("../test.fits", time, flat, coords, bg, coeffs);
+    status = write_results (argv[3], time, flat, coords, bg, coeffs);
 
     delete basis;
     return status;

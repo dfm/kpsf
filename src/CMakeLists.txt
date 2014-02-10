@@ -6,5 +6,7 @@ install (TARGETS kpsf DESTINATION bin)
 
 add_executable (mog mog.cc)
 target_link_libraries (mog ${CERES_LIBRARIES})
+target_link_libraries (mog ${GLOG_LIBRARIES})
+target_link_libraries (mog ${GFLAGS_LIBRARIES})
 target_link_libraries (mog ${CFITSIO_LIBRARIES})
 install (TARGETS mog DESTINATION bin)

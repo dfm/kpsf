@@ -14,6 +14,12 @@ set (CMAKE_DEBUG_POSTFIX "-debug")
 find_package (Ceres REQUIRED)
 include_directories (${CERES_INCLUDES})
 
+# Add glog and gflags.
+find_package (Glog REQUIRED)
+include_directories (${GLOG_INCLUDES})
+find_package (Gflags REQUIRED)
+include_directories (${GFLAGS_INCLUDES})
+
 # Add cfitsio.
 find_package (Cfitsio REQUIRED)
 include_directories (${CFITSIO_INCLUDES})

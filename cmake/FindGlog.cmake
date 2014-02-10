@@ -1,4 +1,7 @@
-# Ceres Solver - A fast non-linear least squares minimizer
+# This CMake module is from the project:
+#    "Ceres Solver - A fast non-linear least squares minimizer"
+# and it comes with the following copyright notice.
+#
 # Copyright 2013 Google Inc. All rights reserved.
 # http://code.google.com/p/ceres-solver/
 #

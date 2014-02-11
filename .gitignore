@@ -3,5 +3,7 @@
 *.so
 *.pyc
 *.png
+*.fits
+prf
 .syntastic_c_config
 build

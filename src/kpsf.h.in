@@ -7,6 +7,10 @@ using kpsf::MixtureBasis;
 
 namespace kpsf {
 
+#define KPSF_VERSION_MAJOR @KPSF_VERSION_MAJOR@
+#define KPSF_VERSION_MINOR @KPSF_VERSION_MINOR@
+#define KPSF_VERSION_PATCH @KPSF_VERSION_PATCH@
+
 int photometry (MixtureBasis* basis,
                 const int nt, const int nx, const int ny,
                 const double* flux_imgs, const double* ferr_imgs,

@@ -90,8 +90,7 @@ public:
         }
 
         // Loop over PSF bases.
-        int anynull, hdutype, i;
-        long fpixel = 1;
+        int anynull, hdutype;
         double nullval = -1;
         for (int i = 0; i < N_PSF_BASIS; ++i) {
             // Move to the HDU.
@@ -156,7 +155,7 @@ public:
 
     MixturePixelResidual (MixtureBasis* basis, double i, double j, double mean,
                           double std)
-        : basis_(basis), i_(i), j_(j), mean_(mean), istd_(1.0/std) {};
+        : i_(i), j_(j), mean_(mean), istd_(1.0/std), basis_(basis) {};
 
     template <typename T>
     bool operator() (const T* coords, const T* coeffs,
@@ -189,7 +188,6 @@ public:
 
 private:
 
-    int status_;
     double i_, j_, mean_, istd_;
     MixtureBasis* basis_;
 

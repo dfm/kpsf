@@ -1,12 +1,5 @@
 #!/usr/bin/env python
 
-import os
-import sys
-
-if "publish" in sys.argv[-1]:
-    os.system("python setup.py sdist upload")
-    sys.exit()
-
 try:
     from setuptools import setup, Extension
     setup, Extension
@@ -19,6 +12,7 @@ import numpy
 
 include_dirs = filter(lambda p: len(p), [
     "${CMAKE_BINARY_DIR}/src",
+    "${CMAKE_SOURCE_DIR}/src",
     numpy.get_include(),
 ] + "${CERES_INCLUDE_DIRS}".split(";"))
 library_dirs = ["${CMAKE_BINARY_DIR}/lib"]
@@ -26,15 +20,13 @@ libraries = ["kpsf"]
 sources = [
     "${CMAKE_CURRENT_SOURCE_DIR}/kpsf/_kpsf.cc",
 ]
-extra_compile_args = ["${CMAKE_CXX_FLAGS}"]
 
 ext = Extension("kpsf._kpsf",
                 sources=sources,
                 library_dirs=library_dirs,
                 libraries=libraries,
                 runtime_library_dirs=library_dirs,
-                include_dirs=include_dirs,
-                extra_compile_args=extra_compile_args, )
+                include_dirs=include_dirs)
 
 setup(
     name="kpsf",

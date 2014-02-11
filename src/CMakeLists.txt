@@ -1,3 +1,11 @@
+# Set up the header.
+configure_file ("kpsf.h.in"
+                "${CMAKE_BINARY_DIR}/src/kpsf.h")
+install (FILES "${CMAKE_BINARY_DIR}/src/kpsf.h" DESTINATION include)
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}")
+include_directories ("${CMAKE_BINARY_DIR}/src")
+
+# Dependencies.
 set (KPSF_LIBRARY_DEPS
      ${CERES_LIBRARIES}
      ${CFITSIO_LIBRARIES})

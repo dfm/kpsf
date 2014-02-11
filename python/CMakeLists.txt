@@ -1,14 +1,15 @@
 find_program (PYTHON "python")
 
 if (PYTHON)
+
     message ("-- Found Python interpreter: ${PYTHON}")
 
     set (SETUP_PY_IN "${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in")
     set (SETUP_PY    "${CMAKE_CURRENT_BINARY_DIR}/setup.py")
     set (INIT_PY_IN  "${CMAKE_CURRENT_SOURCE_DIR}/kpsf/__init__.py.in")
     set (INIT_PY     "${CMAKE_CURRENT_SOURCE_DIR}/kpsf/__init__.py")
-    set (DEPS        "${CMAKE_CURRENT_SOURCE_DIR}/george/*.py"
-                     "${CMAKE_CURRENT_SOURCE_DIR}/george/*.cc")
+    set (DEPS        "${CMAKE_CURRENT_SOURCE_DIR}/kpsf/*.py"
+                     "${CMAKE_CURRENT_SOURCE_DIR}/kpsf/*.cc")
     set (OUTPUT      "${CMAKE_CURRENT_BINARY_DIR}/build/python")
 
     configure_file (${SETUP_PY_IN} ${SETUP_PY})
@@ -22,8 +23,7 @@ if (PYTHON)
     add_custom_target (python ALL DEPENDS ${OUTPUT})
 
     install (CODE
-             "EXECUTE_PROCESS (COMMAND ${PYTHON} ${SETUP_PY} "
-             "install ${PYTHON_INSTALL_OPTIONS})")
+             "EXECUTE_PROCESS(COMMAND ${PYTHON} ${SETUP_PY} install ${PYTHON_INSTALL_OPTIONS})")
 
 else (PYTHON)
     message ("-- Did not find Python interpreter")

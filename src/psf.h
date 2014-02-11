@@ -2,9 +2,19 @@
 #define _PSF_H_
 
 #include <cmath>
+#include <vector>
 #include <cstdio>
+#include <fitsio.h>
+#include <Eigen/Dense>
+
+// Ignore string warnings. It's cfitsio's fault!
+#pragma GCC diagnostic ignored "-Wwrite-strings"
 
 #define N_PSF_BASIS 5
+
+using std::vector;
+using Eigen::VectorXd;
+using Eigen::MatrixXd;
 
 namespace kpsf {
 
@@ -144,11 +154,9 @@ class MixturePixelResidual {
 
 public:
 
-    MixturePixelResidual (MixtureBasis* basis, double i, double j, double mean)
-        : basis_(basis), i_(i), j_(j), mean_(mean)
-    {
-        istd_ = sqrt(mean_);
-    };
+    MixturePixelResidual (MixtureBasis* basis, double i, double j, double mean,
+                          double std)
+        : basis_(basis), i_(i), j_(j), mean_(mean), istd_(1.0/std) {};
 
     template <typename T>
     bool operator() (const T* coords, const T* coeffs,
@@ -230,77 +238,6 @@ private:
     double mean_, strength_;
 
 };
-
-int write_results (const char* fn, vector<double> time, MatrixXd flat,
-                   vector<VectorXd> coords, double bg, double* coeffs)
-{
-    fitsfile *f;
-    int status = 0, nx = flat.rows(), ny = flat.cols(), nt = coords.size();
-
-    // Create the FITS file.
-    remove(fn);
-    if (fits_create_file(&f, fn, &status)) {
-        fits_report_error(stderr, status);
-        return status;
-    }
-
-    // Create a new binary table.
-    char extname[] = "results",
-        * ttype[] = {"time", "flux", "xpos", "ypos"},
-        * tform[] = {"1D",   "1D",   "1D",   "1D"},
-        * tunit[] = {"KBJD", "\0",   "pix",  "pix"};
-    if (fits_create_tbl(f, BINARY_TBL, nt, 4, ttype, tform, tunit, extname,
-                        &status)) {
-        fits_report_error(stderr, status);
-        return status;
-    }
-
-    // Write the columns.
-    for (int i = 0; i < nt; ++i) {
-        fits_write_col(f, TDOUBLE, 1, i+1, 1, 1, &(time[i]), &status);
-        fits_write_col(f, TDOUBLE, 2, i+1, 1, 1, &(coords[i](0)), &status);
-        fits_write_col(f, TDOUBLE, 3, i+1, 1, 1, &(coords[i](1)), &status);
-        fits_write_col(f, TDOUBLE, 4, i+1, 1, 1, &(coords[i](2)), &status);
-        if (status) {
-            fits_report_error(stderr, status);
-            return status;
-        }
-    }
-    // Update the with the coefficients.
-    for (int i = 0; i < N_PSF_BASIS; ++i) {
-        char k[100];
-        sprintf(k, "COEFF%d", i);
-        if (fits_update_key(f, TDOUBLE, k, &(coeffs[i]),
-                            "PSF basis coefficient", &status)) {
-            fits_report_error(stderr, status);
-            return status;
-        }
-    }
-
-    if (fits_update_key(f, TDOUBLE, "BACKGROUND", &bg, "Background level",
-                        &status)) {
-        fits_report_error(stderr, status);
-        return status;
-    }
-
-    // Create the flat image.
-    long int naxes[] = {nx, ny};
-    if (fits_create_img(f, DOUBLE_IMG, 2, naxes, &status)) {
-        fits_report_error(stderr, status);
-        return status;
-    }
-
-    // Write the image.
-    if (fits_write_img(f, TDOUBLE, 1, nx*ny, &(flat(0, 0)), &status)) {
-        fits_report_error(stderr, status);
-        return status;
-    }
-
-    // Clean up.
-    if (fits_close_file(f, &status)) fits_report_error(stderr, status);
-
-    return status;
-}
 
 };
 

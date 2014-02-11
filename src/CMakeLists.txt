@@ -1,12 +1,22 @@
-add_executable (kpsf solver.cc)
-target_link_libraries (kpsf ${CERES_LIBRARIES})
-target_link_libraries (kpsf ${CFITSIO_LIBRARIES})
-install (TARGETS kpsf DESTINATION bin)
+set (KPSF_LIBRARY_DEPS
+     ${CERES_LIBRARIES}
+     ${CFITSIO_LIBRARIES})
 
+# Build and install the library.
+add_library (kpsf STATIC kpsf.cc)
+target_link_libraries (kpsf ${KPSF_LIBRARY_DEPS})
+install (TARGETS kpsf
+         RUNTIME DESTINATION bin
+         LIBRARY DESTINATION lib${LIB_SUFFIX}
+         ARCHIVE DESTINATION lib${LIB_SUFFIX})
 
-add_executable (mog mog.cc)
-target_link_libraries (mog ${CERES_LIBRARIES})
-target_link_libraries (mog ${GLOG_LIBRARIES})
-target_link_libraries (mog ${GFLAGS_LIBRARIES})
-target_link_libraries (mog ${CFITSIO_LIBRARIES})
-install (TARGETS mog DESTINATION bin)
+# Build the demo code.
+add_executable (kpsf-demo demo.cc)
+target_link_libraries (kpsf-demo kpsf)
+install (TARGETS kpsf-demo DESTINATION bin)
+
+# # Build the mixture-of-Gaussians code.
+# add_executable (mog mog.cc)
+# target_link_libraries (mog ${CERES_LIBRARIES})
+# target_link_libraries (mog ${CFITSIO_LIBRARIES})
+# install (TARGETS mog DESTINATION bin)

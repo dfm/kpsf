@@ -13,19 +13,14 @@ set (CMAKE_DEBUG_POSTFIX "-debug")
 #
 # Find the required libraries.
 #
-# Add Ceres.
-find_package (Ceres REQUIRED)
-include_directories (${CERES_INCLUDES})
 
-# Add glog and gflags.
-find_package (Glog REQUIRED)
-include_directories (${GLOG_INCLUDES})
-find_package (Gflags REQUIRED)
-include_directories (${GFLAGS_INCLUDES})
+# Find and add Ceres.
+find_package (Ceres 1.8.0 REQUIRED)
+include_directories (${CERES_INCLUDE_DIRS})
 
 # Add cfitsio.
 find_package (Cfitsio REQUIRED)
-include_directories (${CFITSIO_INCLUDES})
+include_directories (${CFITSIO_INCLUDE_DIRS})
 
 #
 # Optimizations.
@@ -67,5 +62,25 @@ else ()
            "Compiler does not support link-time optimization (-O4).")
 endif (HAVE_LTO_SUPPORT)
 
-# Add the solver.
+# GCC is not strict enough by default, so enable most of the warnings.
+if (UNIX)
+    set (CMAKE_C_FLAGS
+         "${CMAKE_C_FLAGS} -Werror -Wall -Wextra -Wno-unknown-pragmas "
+         "-Wno-sign-compare -Wno-unused-parameter "
+         "-Wno-missing-field-initializers")
+endif (UNIX)
+
+#
+# The executables and library.
+#
 add_subdirectory (src)
+
+#
+# Python bindings.
+#
+option (BUILD_PYTHON
+        "Build the Python bindings"
+        ON)
+if (BUILD_PYTHON)
+  add_subdirectory (python)
+endif ()

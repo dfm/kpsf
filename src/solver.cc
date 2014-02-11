@@ -23,7 +23,7 @@ using namespace kpsf;
 int main (int argc, char **argv)
 {
     // Check the command line arguments.
-    if (argc != 3) {
+    if (argc != 4) {
         std::cerr << "Incorrect number of command line arguments\n";
         std::cerr << "    Usage: " << argv[0]
                   << " /path/to/psf.mog.fits"
@@ -37,11 +37,11 @@ int main (int argc, char **argv)
     long ccd;
     vector<MatrixXd> flux;
     vector<double> time;
-    status = load_tpf(argv[1], &flux, &time, &ccd);
+    status = load_tpf(argv[2], &flux, &time, &ccd);
     if (status) return status;
 
     // Load the PSF basis.
-    MixtureBasis* basis = new MixtureBasis(argv[2]);
+    MixtureBasis* basis = new MixtureBasis(argv[1]);
 
     // Allocate the parameter lists.
     int nt = flux.size(),
@@ -84,7 +84,8 @@ int main (int argc, char **argv)
                     CostFunction* cost =
                         new AutoDiffCostFunction<MixturePixelResidual, 1, 3,
                                                  N_PSF_BASIS, 1, 1> (res);
-                    CauchyLoss* loss = new CauchyLoss(100.0);
+                    ceres::SoftLOneLoss* loss = new ceres::SoftLOneLoss(30.0);
+                    /* CauchyLoss* loss = new CauchyLoss(90.0); */
                     problem.AddResidualBlock(cost, loss,
                                              &(coords[t](0)), coeffs, &bg,
                                              &(flat(i, j)));
@@ -117,7 +118,7 @@ int main (int argc, char **argv)
 
     // Set up the solver.
     Solver::Options options;
-    options.max_num_iterations = 1000;
+    options.max_num_iterations = 500;
     options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
     options.dense_linear_algebra_library_type = ceres::LAPACK;
     options.minimizer_progress_to_stdout = true;

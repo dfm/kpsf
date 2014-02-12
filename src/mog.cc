@@ -251,11 +251,11 @@ int main (int argc, char **argv)
         Solver::Summary summary;
         Solve(options, &problem, &summary);
         std::cout << summary.BriefReport() << std::endl;
-        std::cout << "Writing output file: " << argv[1] << std::endl;
 
+        std::cout << "Writing output file: " << argv[2] << std::endl;
         char extname[10];
         sprintf(extname, "MOG%d", i+1);
-        status = write_mog(argv[1], params, i+1, extname);
+        status = write_mog(argv[2], params, i+1, extname);
         if (status) return status;
     }
 

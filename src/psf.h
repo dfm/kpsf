@@ -134,6 +134,8 @@ public:
         }
     };
 
+    int get_status () const { return status_; };
+
     template <typename T>
     T evaluate (const T* coeffs, T xi, T yi) const {
         T value = T(0.0);

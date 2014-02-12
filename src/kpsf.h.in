@@ -11,7 +11,9 @@ namespace kpsf {
 #define KPSF_VERSION_MINOR @KPSF_VERSION_MINOR@
 #define KPSF_VERSION_PATCH @KPSF_VERSION_PATCH@
 
-int photometry (MixtureBasis* basis,
+int photometry (MixtureBasis* basis, double loss_scale,
+                double sum_to_one_strength, double psf_l2_strength,
+                double flat_reg_strength,
                 const int nt, const int nx, const int ny,
                 const double* flux_imgs, const double* ferr_imgs,
                 double* coeffs, double* coords, double* ff, double* bg);

@@ -1,14 +1,8 @@
 #!/usr/bin/env python
 
-try:
-    from setuptools import setup, Extension
-    setup, Extension
-except ImportError:
-    from distutils.core import setup
-    from distutils.extension import Extension
-    setup, Extension
-
 import numpy
+from distutils.core import setup
+from distutils.extension import Extension
 
 include_dirs = filter(lambda p: len(p), [
     "${CMAKE_BINARY_DIR}/src",
@@ -16,17 +10,22 @@ include_dirs = filter(lambda p: len(p), [
     numpy.get_include(),
 ] + "${CERES_INCLUDE_DIRS}".split(";"))
 library_dirs = ["${CMAKE_BINARY_DIR}/lib"]
-libraries = ["kpsf"]
+libraries = ["blas", "lapack", "glog", "gflags", "cfitsio", "kpsf"]
 sources = [
     "${CMAKE_CURRENT_SOURCE_DIR}/kpsf/_kpsf.cc",
 ]
+extra_objects = filter(lambda f: f[-2:] == ".a",
+                       "${CERES_ALL_LIBRARIES}".split(";"))
+extra_compile_args = []
+extra_link_args = []
 
 ext = Extension("kpsf._kpsf",
                 sources=sources,
                 library_dirs=library_dirs,
                 libraries=libraries,
                 runtime_library_dirs=library_dirs,
-                include_dirs=include_dirs)
+                include_dirs=include_dirs,
+                extra_objects=extra_objects)
 
 setup(
     name="kpsf",

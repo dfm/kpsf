@@ -155,7 +155,8 @@ int main (int argc, char **argv)
     }
 
     // Do the photometry.
-    photometry (basis, nt, nx, ny, &(flux_imgs[0]), &(ferr_imgs[0]),
+    photometry (basis, 30.0, 0.01, 0.01, 0.01,
+                nt, nx, ny, &(flux_imgs[0]), &(ferr_imgs[0]),
                 coeffs, &(coords[0]), &(flat(0, 0)), &bg);
 
     // Save the results.

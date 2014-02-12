@@ -26,6 +26,13 @@ set (KPSF_ABI_VERSION 0.1.0)
 find_package (Ceres 1.8.0 REQUIRED)
 include_directories (${CERES_INCLUDE_DIRS})
 
+# Get all the libraries (despite the FindCeres documentation).
+get_property (CERES_ALL_LIBRARIES TARGET ceres
+              PROPERTY IMPORTED_LINK_INTERFACE_LIBRARIES_RELEASE)
+get_property (TMP TARGET ceres
+              PROPERTY IMPORTED_LOCATION_RELEASE)
+set (CERES_ALL_LIBRARIES "${CERES_ALL_LIBRARIES}" "${TMP}")
+
 # Add cfitsio.
 find_package (Cfitsio REQUIRED)
 include_directories (${CFITSIO_INCLUDE_DIRS})

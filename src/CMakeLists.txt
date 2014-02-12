@@ -20,13 +20,13 @@ install (TARGETS kpsf
          LIBRARY DESTINATION lib${LIB_SUFFIX}
          ARCHIVE DESTINATION lib${LIB_SUFFIX})
 
-# # Build the demo code.
-# add_executable (kpsf-demo demo.cc)
-# target_link_libraries (kpsf-demo kpsf)
-# install (TARGETS kpsf-demo DESTINATION bin)
+# Build the demo code.
+add_executable (kpsf-demo demo.cc)
+target_link_libraries (kpsf-demo kpsf)
+install (TARGETS kpsf-demo DESTINATION bin)
 
-# # Build the mixture-of-Gaussians code.
-# add_executable (mog mog.cc)
-# target_link_libraries (mog ${CERES_LIBRARIES})
-# target_link_libraries (mog ${CFITSIO_LIBRARIES})
-# install (TARGETS mog DESTINATION bin)
+# Build the mixture-of-Gaussians code.
+add_executable (kpsf-mog mog.cc)
+target_link_libraries (kpsf-mog ${CERES_LIBRARIES})
+target_link_libraries (kpsf-mog ${CFITSIO_LIBRARIES})
+install (TARGETS kpsf-mog DESTINATION bin)

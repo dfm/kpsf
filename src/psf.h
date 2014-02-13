@@ -155,9 +155,11 @@ class MixturePixelResidual {
 
 public:
 
-    MixturePixelResidual (MixtureBasis* basis, double i, double j, double mean,
-                          double std)
-        : i_(i), j_(j), mean_(mean), istd_(1.0/std), basis_(basis) {};
+    MixturePixelResidual (MixtureBasis* basis, const int i, const int j,
+                          const int minx, const int maxx, const int miny,
+                          const int maxy, const double mean, const double std)
+        : i_(i), j_(j), minx_(minx), maxx_(maxx), miny_(miny), maxy_(maxy),
+          mean_(mean), istd_(1.0/std), basis_(basis) {};
 
     template <typename T>
     bool operator() (const T* coords, const T* coeffs,
@@ -178,6 +180,10 @@ public:
     template <typename T>
     bool predict (const T* coords, const T* coeffs, const T* background,
                   const T* response, T* value) const {
+        // Check the boundaries.
+        if (coords[1] < T(minx_) || coords[1] > T(maxx_) ||
+            coords[2] < T(miny_) || coords[2] > T(maxy_)) return false;
+
         // Compute the relative pixel position.
         T xi = T(i_) - coords[1],
           yi = T(j_) - coords[2];
@@ -190,7 +196,7 @@ public:
 
 private:
 
-    double i_, j_, mean_, istd_;
+    double i_, j_, minx_, maxx_, miny_, maxy_, mean_, istd_;
     MixtureBasis* basis_;
 
 };

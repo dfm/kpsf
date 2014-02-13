@@ -23,28 +23,34 @@ static char photometry_doc[] = "\n";
 
 static PyObject* kpsf_photometry (PyObject* self, PyObject* args)
 {
-    int nt, nx, ny;
+    int nt, npix, maxiter;
     const char* prf_fn;
     MixtureBasis* basis;
     double loss_scale, sum_to_one_strength, psf_l2_strength, flat_reg_strength;
-    PyObject* flux_obj = NULL,
-            * ferr_obj = NULL,
+    PyObject* x_obj      = NULL,
+            * y_obj      = NULL,
+            * flux_obj   = NULL,
+            * ferr_obj   = NULL,
             * coeffs_obj = NULL,
             * coords_obj = NULL,
-            * ff_obj = NULL,
-            * bg_obj = NULL;
-    PyArrayObject* flux_array = NULL,
-                 * ferr_array = NULL,
+            * ff_obj     = NULL,
+            * bg_obj     = NULL;
+    PyArrayObject* x_array      = NULL,
+                 * y_array      = NULL,
+                 * flux_array   = NULL,
+                 * ferr_array   = NULL,
                  * coeffs_array = NULL,
                  * coords_array = NULL,
-                 * ff_array = NULL,
-                 * bg_array = NULL;
+                 * ff_array     = NULL,
+                 * bg_array     = NULL;
     double* flux_imgs, * ferr_imgs, * ff_imgs, * coeffs, * coords, * ff, * bg;
+    int* x, * y;
 
     // Parse the input arguments.
-    if (!PyArg_ParseTuple(args, "sddddOOOOOO", &prf_fn, &loss_scale,
-                          &sum_to_one_strength, &psf_l2_strength,
-                          &flat_reg_strength, &flux_obj, &ferr_obj,
+    if (!PyArg_ParseTuple(args, "isddddOOOOOOOO", &maxiter, &prf_fn,
+                          &loss_scale, &sum_to_one_strength, &psf_l2_strength,
+                          &flat_reg_strength,
+                          &x_obj, &y_obj, &flux_obj, &ferr_obj,
                           &coeffs_obj, &coords_obj, &ff_obj, &bg_obj))
         return NULL;
 
@@ -58,19 +64,22 @@ static PyObject* kpsf_photometry (PyObject* self, PyObject* args)
     }
 
     // Parse the arrays.
+    x_array = (PyArrayObject*) PyArray_FROM_OTF(x_obj, NPY_INT, NPY_IN_ARRAY);
+    y_array = (PyArrayObject*) PyArray_FROM_OTF(y_obj, NPY_INT, NPY_IN_ARRAY);
     flux_array = PARSE_IN_ARRAY(flux_obj),
     ferr_array = PARSE_IN_ARRAY(ferr_obj),
     coeffs_array = PARSE_INOUT_ARRAY(coeffs_obj),
     coords_array = PARSE_INOUT_ARRAY(coords_obj),
     ff_array = PARSE_INOUT_ARRAY(ff_obj),
     bg_array = PARSE_INOUT_ARRAY(bg_obj);
-    if (flux_array == NULL || ferr_array == NULL || coeffs_array == NULL ||
+    if (x_array == NULL || y_array == NULL || flux_array == NULL ||
+            ferr_array == NULL || coeffs_array == NULL ||
             coords_array == NULL || ff_array == NULL || bg_array == NULL)
         goto fail;
 
     // Basic dimension checks.
-    if (PyArray_NDIM (coords_array) != 2 || PyArray_NDIM (ff_array) != 2 ||
-            PyArray_NDIM (flux_array) != 3 || PyArray_NDIM (ferr_array) != 3 ||
+    if (PyArray_NDIM (coords_array) != 2 || PyArray_NDIM (ff_array) != 1 ||
+            PyArray_NDIM (flux_array) != 2 || PyArray_NDIM (ferr_array) != 2 ||
             PyArray_DIM (coords_array, 1) != 3 ||
             PyArray_DIM (coeffs_array, 0) != N_PSF_BASIS) {
         PyErr_SetString(PyExc_ValueError, "Dimension mismatch");
@@ -79,18 +88,18 @@ static PyObject* kpsf_photometry (PyObject* self, PyObject* args)
 
     // Get the relevant dimensions.
     nt = PyArray_DIM (flux_array, 0);
-    nx = PyArray_DIM (flux_array, 1);
-    ny = PyArray_DIM (flux_array, 2);
+    npix = PyArray_DIM (flux_array, 1);
 
     // Check these dimensions.
-    if (nt != PyArray_DIM(ferr_array, 0) || nx != PyArray_DIM(ferr_array, 1) ||
-            ny != PyArray_DIM (ferr_array, 2) || nx != PyArray_DIM(ff_array, 0) ||
-            ny != PyArray_DIM(ff_array, 1) || nt != PyArray_DIM(coords_array, 0)) {
+    if (nt != PyArray_DIM(ferr_array, 0) || npix != PyArray_DIM(ferr_array, 1) ||
+            npix != PyArray_DIM(ff_array, 0) || nt != PyArray_DIM(coords_array, 0)) {
         PyErr_SetString(PyExc_ValueError, "Dimension mismatch");
         goto fail;
     }
 
     // Access the data.
+    x = (int*) PyArray_DATA(x_array);
+    y = (int*) PyArray_DATA(y_array);
     flux_imgs = (double*) PyArray_DATA(flux_array);
     ferr_imgs = (double*) PyArray_DATA(ferr_array);
     ff_imgs = (double*) PyArray_DATA(ferr_array);
@@ -99,11 +108,13 @@ static PyObject* kpsf_photometry (PyObject* self, PyObject* args)
     ff = (double*) PyArray_DATA(ff_array);
     bg = (double*) PyArray_DATA(bg_array);
 
-    kpsf::photometry (basis, loss_scale, sum_to_one_strength, psf_l2_strength,
-                      flat_reg_strength, nt, nx, ny, flux_imgs, ferr_imgs,
-                      coeffs, coords, ff, bg);
+    kpsf::photometry (maxiter, basis, loss_scale, sum_to_one_strength,
+                      psf_l2_strength, flat_reg_strength, nt, npix,
+                      x, y, flux_imgs, ferr_imgs, coeffs, coords, ff, bg);
 
     // Clean up.
+    Py_DECREF(x_array);
+    Py_DECREF(y_array);
     Py_DECREF(flux_array);
     Py_DECREF(ferr_array);
     Py_DECREF(coeffs_array);
@@ -117,6 +128,8 @@ static PyObject* kpsf_photometry (PyObject* self, PyObject* args)
 
 fail:
 
+    Py_XDECREF(x_array);
+    Py_XDECREF(y_array);
     Py_XDECREF(flux_array);
     Py_XDECREF(ferr_array);
     Py_XDECREF(coeffs_array);

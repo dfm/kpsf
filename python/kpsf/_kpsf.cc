@@ -64,14 +64,14 @@ static PyObject* kpsf_photometry (PyObject* self, PyObject* args)
     }
 
     // Parse the arrays.
-    x_array = (PyArrayObject*) PyArray_FROM_OTF(x_obj, NPY_INT, NPY_IN_ARRAY);
-    y_array = (PyArrayObject*) PyArray_FROM_OTF(y_obj, NPY_INT, NPY_IN_ARRAY);
-    flux_array = PARSE_IN_ARRAY(flux_obj),
-    ferr_array = PARSE_IN_ARRAY(ferr_obj),
+    x_array      = (PyArrayObject*) PyArray_FROM_OTF(x_obj, NPY_INT, NPY_IN_ARRAY);
+    y_array      = (PyArrayObject*) PyArray_FROM_OTF(y_obj, NPY_INT, NPY_IN_ARRAY);
+    flux_array   = PARSE_IN_ARRAY(flux_obj),
+    ferr_array   = PARSE_IN_ARRAY(ferr_obj),
     coeffs_array = PARSE_INOUT_ARRAY(coeffs_obj),
     coords_array = PARSE_INOUT_ARRAY(coords_obj),
-    ff_array = PARSE_INOUT_ARRAY(ff_obj),
-    bg_array = PARSE_INOUT_ARRAY(bg_obj);
+    ff_array     = PARSE_INOUT_ARRAY(ff_obj),
+    bg_array     = PARSE_INOUT_ARRAY(bg_obj);
     if (x_array == NULL || y_array == NULL || flux_array == NULL ||
             ferr_array == NULL || coeffs_array == NULL ||
             coords_array == NULL || ff_array == NULL || bg_array == NULL)
@@ -98,15 +98,15 @@ static PyObject* kpsf_photometry (PyObject* self, PyObject* args)
     }
 
     // Access the data.
-    x = (int*) PyArray_DATA(x_array);
-    y = (int*) PyArray_DATA(y_array);
+    x         = (int*) PyArray_DATA(x_array);
+    y         = (int*) PyArray_DATA(y_array);
     flux_imgs = (double*) PyArray_DATA(flux_array);
     ferr_imgs = (double*) PyArray_DATA(ferr_array);
-    ff_imgs = (double*) PyArray_DATA(ferr_array);
-    coeffs = (double*) PyArray_DATA(coeffs_array);
-    coords = (double*) PyArray_DATA(coords_array);
-    ff = (double*) PyArray_DATA(ff_array);
-    bg = (double*) PyArray_DATA(bg_array);
+    ff_imgs   = (double*) PyArray_DATA(ferr_array);
+    coeffs    = (double*) PyArray_DATA(coeffs_array);
+    coords    = (double*) PyArray_DATA(coords_array);
+    ff        = (double*) PyArray_DATA(ff_array);
+    bg        = (double*) PyArray_DATA(bg_array);
 
     kpsf::photometry (maxiter, basis, loss_scale, sum_to_one_strength,
                       psf_l2_strength, flat_reg_strength, nt, npix,

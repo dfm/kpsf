@@ -43,7 +43,7 @@ static PyObject* kpsf_photometry (PyObject* self, PyObject* args)
                  * coords_array = NULL,
                  * ff_array     = NULL,
                  * bg_array     = NULL;
-    double* flux_imgs, * ferr_imgs, * ff_imgs, * coeffs, * coords, * ff, * bg;
+    double* flux_imgs, * ferr_imgs, * coeffs, * coords, * ff, * bg;
     int* x, * y;
 
     // Parse the input arguments.
@@ -102,7 +102,6 @@ static PyObject* kpsf_photometry (PyObject* self, PyObject* args)
     y = (int*) PyArray_DATA(y_array);
     flux_imgs = (double*) PyArray_DATA(flux_array);
     ferr_imgs = (double*) PyArray_DATA(ferr_array);
-    ff_imgs = (double*) PyArray_DATA(ferr_array);
     coeffs = (double*) PyArray_DATA(coeffs_array);
     coords = (double*) PyArray_DATA(coords_array);
     ff = (double*) PyArray_DATA(ff_array);

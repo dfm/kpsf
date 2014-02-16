@@ -81,7 +81,8 @@ static PyObject* kpsf_photometry (PyObject* self, PyObject* args)
     if (PyArray_NDIM (coords_array) != 2 || PyArray_NDIM (ff_array) != 1 ||
             PyArray_NDIM (flux_array) != 2 || PyArray_NDIM (ferr_array) != 2 ||
             PyArray_DIM (coords_array, 1) != 3 ||
-            PyArray_DIM (coeffs_array, 0) != N_PSF_BASIS) {
+            PyArray_DIM (coeffs_array, 0) != N_PSF_BASIS ||
+            PyArray_NDIM (bg_array) != 1) {
         PyErr_SetString(PyExc_ValueError, "Dimension mismatch");
         goto fail;
     }
@@ -92,7 +93,8 @@ static PyObject* kpsf_photometry (PyObject* self, PyObject* args)
 
     // Check these dimensions.
     if (nt != PyArray_DIM(ferr_array, 0) || npix != PyArray_DIM(ferr_array, 1) ||
-            npix != PyArray_DIM(ff_array, 0) || nt != PyArray_DIM(coords_array, 0)) {
+            npix != PyArray_DIM(ff_array, 0) || nt != PyArray_DIM(coords_array, 0) ||
+            nt != PyArray_DIM (bg_array, 0)) {
         PyErr_SetString(PyExc_ValueError, "Dimension mismatch");
         goto fail;
     }

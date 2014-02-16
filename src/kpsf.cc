@@ -43,10 +43,10 @@ int kpsf::photometry (const int maxiter, MixtureBasis* basis, double loss_scale,
             CostFunction* cost =
                 new AutoDiffCostFunction<MixturePixelResidual, 1, 3,
                                          N_PSF_BASIS, 1, 1> (res);
-            ceres::SoftLOneLoss* loss =
-                new ceres::SoftLOneLoss(loss_scale);
-            problem.AddResidualBlock(cost, loss,
-                                     &(coords[3*t]), coeffs, bg,
+            // ceres::SoftLOneLoss* loss =
+            //     new ceres::SoftLOneLoss(loss_scale);
+            problem.AddResidualBlock(cost, NULL,
+                                     &(coords[3*t]), coeffs, &(bg[t]),
                                      &(ff[i]));
         }
     }

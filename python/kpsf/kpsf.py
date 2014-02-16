@@ -20,6 +20,12 @@ from kpsf.model import MOMOG
 from kpsf._kpsf import photometry
 
 
+def reshape_img(x, y, v):
+    img = np.nan + np.zeros((max(x)+1, max(y)+1))
+    img[x, y] = v
+    return img
+
+
 def get_models(kicid, quarter, prf_path, ttol=0.1,
                fn_template="kplr{0:02d}.{1}_2011265_prf.mog.fits".format):
     if kplr is None:
@@ -89,7 +95,7 @@ class KPSF(object):
         self.basis = MOMOG(basis_fn)
 
         # Initialize some of the parameters.
-        self.coeffs = np.ones(5) / 5.0
+        self.coeffs = np.log(np.ones(5) / 5.0)
         self.flat = np.ones_like(self.flux[0])
 
         # Initialize coordinates, flux, and background.
@@ -102,7 +108,7 @@ class KPSF(object):
         cy = np.sum(self.flux * self.y[None, :], axis=1) / norm
 
         # Estimate the flux/background for each exposure.
-        psf = self.basis(self.coeffs, self.x[None, :] - cx[:, None],
+        psf = self.basis(np.exp(self.coeffs), self.x[None, :] - cx[:, None],
                          self.y[None, :] - cy[:, None])
         f, b = np.empty_like(cx), np.empty_like(cx)
         for i, p in enumerate(psf):
@@ -114,7 +120,36 @@ class KPSF(object):
         self.coords = np.vstack((f, cx, cy)).T
         self.background = b
 
-    def fit(self, maxiter=1000):
-        photometry(maxiter, self.basis_fn, 10000., 0., 0., 1e3, self.x, self.y,
-                   self.flux, self.ferr, self.coeffs, self.coords, self.flat,
-                   self.background)
+    def fit(self, maxiter=1000, l2flat=1.0):
+        photometry(maxiter, self.basis_fn, 1000., 0., 0., l2flat,
+                   self.x, self.y, self.flux, self.ferr, self.coeffs,
+                   self.coords, self.flat, self.background)
+
+    def plot_snapshot(self, ind=0):
+        dim = 10
+        fig, axes = pl.subplots(3, 2, figsize=(2*dim, 3*dim))
+
+        # Plot the data at this time.
+        data = reshape_img(self.x, self.y, self.flux[ind])
+        axes[0, 0].imshow(data, cmap="gray", interpolation="nearest")
+
+        # Plot the model at the same time.
+        model = self.basis(np.exp(self.coeffs), self.x - self.coords[ind, 1],
+                           self.y - self.coords[ind, 2])
+        model = self.flat*(self.background[ind] + self.coords[ind, 0] * model)
+        model = reshape_img(self.x, self.y, model)
+        axes[0, 1].imshow(model, cmap="gray", interpolation="nearest")
+
+        # Plot the residuals.
+        axes[1, 0].imshow(model-data, cmap="gray", interpolation="nearest")
+
+        # Plot the flat.
+        flat = reshape_img(self.x, self.y, self.flat)
+        axes[1, 1].imshow(flat, cmap="gray", interpolation="nearest")
+
+        # Plot the PSF.
+        y, x = np.meshgrid(np.linspace(-5, 5, 100), np.linspace(-5, 5, 100))
+        psf = self.basis(np.exp(self.coeffs), x, y)
+        axes[2, 0].imshow(psf, cmap="gray", interpolation="nearest")
+
+        return fig

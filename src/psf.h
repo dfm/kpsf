@@ -140,7 +140,7 @@ public:
     T evaluate (const T* coeffs, T xi, T yi) const {
         T value = T(0.0);
         for (int i = 0; i < N_PSF_BASIS; ++i)
-            value += coeffs[i] * basis_[i].evaluate<T> (xi, yi);
+            value += exp(coeffs[i]) * basis_[i].evaluate<T> (xi, yi);
         return value;
     };
 

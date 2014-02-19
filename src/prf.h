@@ -1,11 +1,10 @@
-#ifndef _PSF_H_
-#define _PSF_H_
+#ifndef _PRF_H_
+#define _PRF_H_
 
 #include <cmath>
 #include <vector>
 #include <cstdio>
 #include <fitsio.h>
-#include <Eigen/Dense>
 
 // Ignore string warnings. It's cfitsio's fault!
 #pragma GCC diagnostic ignored "-Wwrite-strings"
@@ -13,17 +12,15 @@
 #define N_PSF_BASIS 5
 
 using std::vector;
-using Eigen::VectorXd;
-using Eigen::MatrixXd;
 
 namespace kpsf {
 
-class GaussianPSF {
+class FixedGaussian {
 
 public:
 
-    GaussianPSF (double amp, double xpos, double ypos, double xvar,
-                 double covar, double yvar)
+    FixedGaussian (double amp, double xpos, double ypos, double xvar,
+                   double covar, double yvar)
         : amp_(amp), xpos_(xpos), ypos_(ypos), xvar_(xvar), covar_(covar),
           yvar_(yvar)
     {
@@ -48,14 +45,14 @@ private:
 
 };
 
-class MixturePSF {
+class Mixture {
 
 public:
 
     int add_gaussian (double amp, double xpos, double ypos, double xvar,
                       double covar, double yvar)
     {
-        GaussianPSF g(amp, xpos, ypos, xvar, covar, yvar);
+        FixedGaussian g(amp, xpos, ypos, xvar, covar, yvar);
         if (g.get_det() <= 0.0) return 1;
         gaussians_.push_back(g);
         return 0;
@@ -71,15 +68,15 @@ public:
 
 private:
 
-    vector<GaussianPSF> gaussians_;
+    vector<FixedGaussian> gaussians_;
 
 };
 
-class MixtureBasis {
+class MixturePSF {
 
 public:
 
-    MixtureBasis (const char* fn) : basis_(N_PSF_BASIS) {
+    MixturePSF (const char* fn) : basis_(N_PSF_BASIS) {
         fitsfile *f;
         status_ = 0;
 
@@ -108,7 +105,7 @@ public:
             }
 
             // Initialize the mixture.
-            basis_[i] = MixturePSF();
+            basis_[i] = Mixture();
 
             // Load the columns.
             double amp, xpos, ypos, xvar, covar, yvar;
@@ -147,101 +144,7 @@ public:
 private:
 
     int status_;
-    vector<MixturePSF> basis_;
-
-};
-
-class MixturePixelResidual {
-
-public:
-
-    MixturePixelResidual (MixtureBasis* basis, const int i, const int j,
-                          const int minx, const int maxx, const int miny,
-                          const int maxy, const double mean, const double std)
-        : i_(i), j_(j), minx_(minx), maxx_(maxx), miny_(miny), maxy_(maxy),
-          mean_(mean), istd_(1.0/std), basis_(basis) {};
-
-    template <typename T>
-    bool operator() (const T* coords, const T* coeffs,
-                     const T* background, const T* response,
-                     T* residuals) const {
-        // Compute the pixel position in PRF coordinates.
-        T value;
-
-        // Interpolate the PSF to the position of the pixel.
-        if (! (predict(coords, coeffs, background, response, &value)))
-            return false;
-
-        // Compute the residuals.
-        residuals[0] = (value - T(mean_)) * T(istd_);
-        return true;
-    };
-
-    template <typename T>
-    bool predict (const T* coords, const T* coeffs, const T* background,
-                  const T* response, T* value) const {
-        // Check the boundaries.
-        if (coords[1] < T(minx_) || coords[1] > T(maxx_) ||
-            coords[2] < T(miny_) || coords[2] > T(maxy_)) return false;
-
-        // Compute the relative pixel position.
-        T xi = T(i_) - coords[1],
-          yi = T(j_) - coords[2];
-
-        // Incorporate the response and background.
-        *value = (*response)*(coords[0] * basis_->evaluate<T>(coeffs, xi, yi) + *background);
-
-        return true;
-    };
-
-private:
-
-    double i_, j_, minx_, maxx_, miny_, maxy_, mean_, istd_;
-    MixtureBasis* basis_;
-
-};
-
-class SumToOneResidual {
-
-public:
-
-    SumToOneResidual (int N, double strength)
-        : number_(N), strength_(strength) {};
-
-    template <typename T>
-    bool operator() (const T* coeffs, T* residuals) const {
-        residuals[0] = T(1.0);
-        for (int i = 0; i < number_; ++i)
-            residuals[0] -= coeffs[i];
-        residuals[0] *= T(strength_);
-        return true;
-    };
-
-private:
-
-    int number_;
-    double strength_;
-
-};
-
-class L2Residual {
-
-public:
-
-    L2Residual (int N, double mean, double strength)
-        : number_(N), mean_(mean), strength_(strength) {};
-
-    template <typename T>
-    bool operator() (const T* coeffs, T* residuals) const {
-        for (int i = 0; i < number_; ++i)
-            residuals[i] = T(strength_) * (coeffs[i] - T(mean_));
-        return true;
-    };
-
-private:
-
-    int number_;
-    double mean_, strength_;
+    vector<Mixture> basis_;
 
 };
 

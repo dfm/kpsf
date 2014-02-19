@@ -9,9 +9,9 @@ using ceres::CostFunction;
 using ceres::AutoDiffCostFunction;
 
 using kpsf::L2Residual;
-using kpsf::MixtureBasis;
+using kpsf::MixturePSF;
 using kpsf::SumToOneResidual;
-using kpsf::MixturePixelResidual;
+using kpsf::PixelResidual;
 
 int kpsf::photometry (const int maxiter, MixtureBasis* basis, double loss_scale,
                       double sum_to_one_strength, double psf_l2_strength,

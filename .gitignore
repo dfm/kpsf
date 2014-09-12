@@ -7,3 +7,4 @@
 prf
 .syntastic_c_config
 build
+kpsf/_kpsf.c*

@@ -1,6 +1,0 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-__version__ = "${KPSF_VERSION}"
-
-# from .kpsf import

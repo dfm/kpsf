@@ -25,7 +25,7 @@ if __name__ == "__main__":
         sys.exit()
 
     # Choose libraries to link.
-    libraries = []
+    libraries = [Ceres()]
     if os.name == "posix":
         libraries.append("m")
 
@@ -43,8 +43,8 @@ if __name__ == "__main__":
 
     # Set up the extension.
     extensions = [
-        Extension("kpsf._kpsf", sources=src, libraries=[Ceres()],
-                  include_dirs=include_dirs),
+        Extension("kpsf._kpsf", sources=src, libraries=libraries,
+                  language="c++", include_dirs=include_dirs),
     ]
 
     # Hackishly inject a constant into builtins to enable importing of the

@@ -1,4 +1,7 @@
+#include <iostream>
 #include <ceres/ceres.h>
+
+#include "kpsf.h"
 #include "psf.h"
 #include "residual.h"
 
@@ -10,9 +13,10 @@ using ceres::AutoDiffCostFunction;
 
 using kpsf::CalibratedPixelResidual;
 
-int photometry_one (const int npix, const double* xpix, const double* ypix,
-                    const double* flux, const double* ferr,
-                    double* coords, double* coeffs, double* bg)
+int kpsf::photometry_one (const int npix, const double* xpix,
+                          const double* ypix, const double* flux,
+                          const double* ferr, double* coords, double* coeffs,
+                          double* bg)
 {
     int i;
     Problem problem;
@@ -25,9 +29,19 @@ int photometry_one (const int npix, const double* xpix, const double* ypix,
         //     new ceres::SoftLOneLoss(loss_scale);
         problem.AddResidualBlock(cost, NULL, coords, coeffs, bg);
     }
-    return 0;
-}
 
-int main () {
+    // Set up the solver.
+    Solver::Options options;
+    options.max_num_iterations = 100;
+    options.linear_solver_type = ceres::DENSE_QR;
+    // options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+    options.dense_linear_algebra_library_type = ceres::LAPACK;
+    options.minimizer_progress_to_stdout = true;
+
+    // Do the solve and report the results.
+    Solver::Summary summary;
+    Solve(options, &problem, &summary);
+    std::cout << summary.BriefReport() << std::endl;
+
     return 0;
 }

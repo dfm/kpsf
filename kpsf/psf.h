@@ -18,8 +18,8 @@ bool evaluate_gaussian_psf (const double x, const double y,
       covar = params[2],
       det = xvar * yvar - covar * covar;
     if (det <= 0.0) return false;
-    T dx = x0 - x,
-      dy = y0 - y,
+    T dx = x - x0,
+      dy = y - y0,
       arg = (dx * (yvar*dx - covar*dy) + dy * (xvar*dy - covar*dx)) / det;
     *value = f0 * exp(-0.5 * arg) / (2 * M_PI * sqrt(det));
     return true;

@@ -24,9 +24,9 @@ public:
                   const T* background, const T* response,
                   T* residuals) const {
         T value;
-        if (!(evaluate_gaussian_psf<T>(pixel_x_, pixel_y_, coords, psfpars,
-                                       &value))) return false;
-        value = response[0] * (value + background[0]);
+        if (!(evaluate_dbl_gaussian_psf<T>(0.2, pixel_x_, pixel_y_, coords,
+                                           psfpars, &value))) return false;
+        value = response[0] * value + background[0];
         residuals[0] = (value - flux_) * flux_istd_;
         return true;
     };
@@ -47,6 +47,38 @@ public:
         T response = T(1.0);
         return compute(coords, psfpars, background, &response, residuals);
     };
+};
+
+class GaussianPrior {
+public:
+    GaussianPrior (const double mean, const double std)
+        : mean_(mean), istd_(1.0/std) {};
+
+    template <typename T>
+    bool operator() (const T* value, T* residuals) const {
+        residuals[0] = (value[0] - T(mean_)) * T(istd_);
+        return true;
+    };
+
+private:
+    double mean_, istd_;
+};
+
+class PSFPrior {
+public:
+    PSFPrior (const double std)
+        : strength_(1.0 / std) {};
+
+    template <typename T>
+    bool operator() (const T* psfpars, T* residuals) const {
+        T xoff = psfpars[0],
+          yoff = psfpars[1];
+        residuals[0] = strength_ * sqrt(xoff * xoff + yoff * yoff);
+        return true;
+    };
+
+private:
+    double strength_;
 };
 
 };

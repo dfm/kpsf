@@ -9,17 +9,8 @@ import fitsio
 import numpy as np
 import matplotlib.pyplot as pl
 
-from kpsf._kpsf import compute_model, run_photometry_all
-
-
-def centroid(x0, y0, img):
-    x0, y0 = int(x0), int(y0)
-    stamp = img[x0-1:x0+2, y0-1:y0+2]
-    return stamp
-
-
-# def psf(
-
+from kpsf._kpsf import (compute_model, run_photometry_all,
+                        N_INT_TIME, N_PSF_COMP)
 
 data = fitsio.read("kplr060021426-2014044044430_lpd-targ.fits")
 time = data["TIME"]
@@ -48,25 +39,32 @@ shape = flux[0].shape
 flux = flux.reshape((len(flux), -1))
 ferr = ferr.reshape((len(ferr), -1))
 
-m = np.sum(flux, axis=1) > 0.0
+# m = (np.sum(flux, axis=1) > 0.0)
+m = (np.sum(flux, axis=1) > 0.0) * (np.arange(len(flux)) % 3 == 0)
+# m = (np.sum(flux, axis=1) > 0.0) * (np.arange(len(flux)) < 100)
 time = np.ascontiguousarray(time[m], dtype=np.float64)
 flux = np.ascontiguousarray(flux[m], dtype=np.float64)
 ferr = np.ascontiguousarray(ferr[m], dtype=np.float64)
 
-max_frac = 0.2
+max_fracs = np.array([0.9] * (N_PSF_COMP - 1))
 
 
 def fit_one(flux, ferr, bg, model, coords, coeffs):
+    # f2 = flux ** 2
+    # x0 = np.sum(f2 * xpix) / np.sum(f2)
+    # y0 = np.sum(f2 * ypix) / np.sum(f2)
     i = np.argmax(flux)
     x0, y0 = xpix[i], ypix[i]
 
     # Initialize the parameters.
-    coords[:] = np.array([x0, y0] * 5)
+    coords[:] = np.array([x0, y0] * N_INT_TIME)
     coords[:] += 1e-8 * np.random.randn(len(coords))
-    coeffs[:] = [0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 5.0, 5.0, 0.0]
+    coeffs[:] = ([1.0, 1.0, 0.0]
+                 + [v for j in range(N_PSF_COMP-1)
+                    for v in [0.0, 0.0, 0.0, 5.0, 5.0, 0.0]])
 
     # Do the initial least squares fit.
-    m = compute_model(max_frac, xpix, ypix, 1.0, coords, coeffs,
+    m = compute_model(max_fracs, xpix, ypix, 1.0, coords, coeffs,
                       np.ones((len(xpix),), dtype=np.float64), 0.0)
     A = np.vander(m, 2)
     w = np.linalg.solve(np.dot(A.T, A), np.dot(A.T, flux))
@@ -76,8 +74,8 @@ def fit_one(flux, ferr, bg, model, coords, coeffs):
 
 bg = np.zeros(len(flux), dtype=np.float64)
 model = np.zeros(len(flux), dtype=np.float64)
-coords = np.zeros((len(flux), 2 * 5), dtype=np.float64)
-coeffs = np.zeros((len(flux), 9), dtype=np.float64)
+coords = np.zeros((len(flux), 2 * N_INT_TIME), dtype=np.float64)
+coeffs = np.zeros((len(flux), 6*3 - 3), dtype=np.float64)
 for i in range(len(flux)):
     if not np.any(np.isfinite(flux[i])):
         continue
@@ -87,27 +85,29 @@ for i in range(len(flux)):
 ff = np.ones(len(xpix), dtype=np.float64)
 coeffs = np.ascontiguousarray(np.median(coeffs, axis=0), dtype=np.float64)
 run_photometry_all(time, xpix, ypix, flux, ferr, model, coords, coeffs, ff, bg,
-                   max_frac, 2.0, 1e-8)
+                   max_fracs, 1.0, 1e-6)
 # assert 0
 
 print(coords)
 print(coeffs)
 
+print(np.std(model))
+
 pl.plot(time, model, ".k")
 # pl.plot(time, coords[:, 2], ".k")
 pl.plot(time, 100 * bg, ".r")
 pl.savefig("dude.png")
+assert 0
 
 fig = pl.figure(figsize=(10, 10))
 
 i = 0
+vmin, vmax = np.min(flux), np.max(flux)
 for n in range(len(flux)):
     if not np.any(np.isfinite(flux[i])):
         continue
 
     pl.clf()
-
-    vmin, vmax = np.min(flux), np.max(flux)
     ax = fig.add_subplot(221)
     ax.imshow(flux[n].reshape(shape), cmap="gray", interpolation="nearest",
               vmin=vmin, vmax=vmax)
@@ -117,7 +117,7 @@ for n in range(len(flux)):
     ax.set_yticklabels([])
 
     ax = fig.add_subplot(222)
-    m = compute_model(max_frac, xpix, ypix, model[n], coords[n], coeffs, ff,
+    m = compute_model(max_fracs, xpix, ypix, model[n], coords[n], coeffs, ff,
                       bg[n])
     ax.imshow(m.reshape(shape), cmap="gray",
               interpolation="nearest", vmin=vmin, vmax=vmax)
@@ -127,8 +127,9 @@ for n in range(len(flux)):
     ax.set_yticklabels([])
 
     ax = fig.add_subplot(223)
+    d = vmax - vmin
     ax.imshow((flux[n] - m).reshape(shape), cmap="gray",
-              interpolation="nearest")
+              interpolation="nearest", vmin=-0.5*d, vmax=0.5*d)
     ax.plot(coords[n, 1::2], coords[n, 0::2], "r")
     ax.plot(coords[n, 1::2], coords[n, 0::2], "+r")
     ax.set_xticklabels([])
@@ -136,7 +137,7 @@ for n in range(len(flux)):
 
     ax = fig.add_subplot(224)
     ax.imshow(ff.reshape(shape), cmap="gray",
-              interpolation="nearest")
+              interpolation="nearest", vmin=0.9, vmax=1.1)
     ax.plot(coords[n, 1::2], coords[n, 0::2], "r")
     ax.plot(coords[n, 1::2], coords[n, 0::2], "+r")
     ax.set_xticklabels([])

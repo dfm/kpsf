@@ -3,6 +3,8 @@
 
 #include <cmath>
 
+#define NUM_PSF_COMP 3
+
 namespace kpsf {
 
 template <typename T>
@@ -19,16 +21,33 @@ bool gaussian_eval (const T dx, const T dy, const T* params, T* value)
 }
 
 template <typename T>
-bool evaluate_gaussian_psf (const double x, const double y,
-                            const T* coords, const T* params,
-                            T* value)
+bool evaluate_psf (const double* max_fracs,
+                   const double x, const double y,
+                   const T* coords, const T* params, T* value)
 {
-    T f0 = coords[0],
-      x0 = coords[1],
-      y0 = coords[2];
+    T total_weight = T(0.0), w, xoff, yoff,
+      x0 = coords[0],
+      y0 = coords[1],
+      tmp, val = T(0.0);
+
+    // Evaluate the first Gaussian.
     bool flag = gaussian_eval (x - x0, y - y0, params, value);
     if (!flag) return false;
-    *value *= f0;
+
+    // Evaluate the other Gaussians.
+    for (int i = 0; i < NUM_PSF_COMP - 1; ++i) {
+        int ind = 3 + i * 6;
+        w = max_fracs[i] / (1.0 + exp(-params[ind]));
+        total_weight += w;
+        if (total_weight > 1.0) return false;
+        xoff = params[ind+1];
+        yoff = params[ind+2];
+        flag = gaussian_eval (x-x0-xoff, y-y0-yoff, &(params[ind+3]), &tmp);
+        if (!flag) return false;
+        val += w * tmp;
+    }
+
+    *value = (*value) * (1.0 - total_weight) + val;
     return true;
 }
 
@@ -51,7 +70,7 @@ bool evaluate_dbl_gaussian_psf (const double max_frac,
     // Evaluate the second Gaussian.
     T xoff = params[4],
       yoff = params[5];
-    flag = gaussian_eval (x - x0 + xoff, y - y0 + yoff, &(params[6]), &val);
+    flag = gaussian_eval (x - x0 - xoff, y - y0 - yoff, &(params[6]), &val);
     if (!flag) return false;
 
     *value = frac * val + (1.0 - frac) * (*value);

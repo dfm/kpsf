@@ -5,6 +5,8 @@
 #include "psf.h"
 #include "residual.h"
 
+#include <iostream>
+
 using ceres::Solve;
 using ceres::Solver;
 using ceres::Problem;
@@ -15,12 +17,14 @@ using kpsf::PixelResidual;
 using kpsf::GaussianPrior;
 using kpsf::SmoothPrior;
 
-int kpsf::photometry_all (const int nt, const int npix, const double* xpix,
+int kpsf::photometry_all (const int nt, const int npix,
+                          const double maxx, const double maxy,
+                          const double* xpix,
                           const double* ypix, const double* flux,
                           const double* ferr, double* model,
                           double* coords, double* coeffs,
                           double* ff, double* bg,
-                          const double max_frac,
+                          const double* max_fracs,
                           const double motion_reg,
                           const double ff_reg)
 {
@@ -31,10 +35,12 @@ int kpsf::photometry_all (const int nt, const int npix, const double* xpix,
         for (j = 0; j < npix; ++j) {
             ind = i*npix+j;
             PixelResidual* res =
-                new PixelResidual(max_frac, xpix[j], ypix[j], flux[ind],
-                                  1./ferr[ind]);
+                new PixelResidual(maxx, maxy,
+                                  xpix[j], ypix[j], flux[ind], 1./ferr[ind],
+                                  max_fracs);
             cost = new AutoDiffCostFunction<PixelResidual, 1, 1,
-                                            2*NUM_INT_TIME, 9, 1, 1> (res);
+                                            2*NUM_INT_TIME, 6*NUM_PSF_COMP-3,
+                                            1, 1> (res);
             // ceres::SoftLOneLoss* loss =
             //     new ceres::SoftLOneLoss(loss_scale);
             problem.AddResidualBlock(cost, NULL, &(model[i]),
@@ -44,13 +50,11 @@ int kpsf::photometry_all (const int nt, const int npix, const double* xpix,
         }
     }
 
-    for (k = 0; k < nt - 1; ++k) {
-        cost = new AutoDiffCostFunction<SmoothPrior, NUM_INT_TIME,
-                                        2*NUM_INT_TIME, 2*NUM_INT_TIME> (
+    for (k = 0; k < nt; ++k) {
+        cost = new AutoDiffCostFunction<SmoothPrior, NUM_INT_TIME - 1,
+                                        2*NUM_INT_TIME> (
             new SmoothPrior(motion_reg));
-        problem.AddResidualBlock(cost, NULL,
-                                 &(coords[2*k*NUM_INT_TIME]),
-                                 &(coords[2*(k+1)*NUM_INT_TIME]));
+        problem.AddResidualBlock(cost, NULL, &(coords[2*k*NUM_INT_TIME]));
     }
 
     for (j = 0; j < npix; ++j) {

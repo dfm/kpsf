@@ -3,17 +3,18 @@
 
 #include "psf.h"
 
-#define NUM_INT_TIME 5
+#define NUM_INT_TIME 3
 
 namespace kpsf {
 
 class PixelResidual {
 public:
-    PixelResidual (const double pixel_x, const double pixel_y,
+    PixelResidual (const double maxx, const double maxy,
+                   const double pixel_x, const double pixel_y,
                    const double flux, const double flux_istd,
-                   const double max_frac)
-        : pixel_x_(pixel_x), pixel_y_(pixel_y), flux_(flux),
-          flux_istd_(flux_istd), max_frac_(max_frac) {};
+                   const double* max_fracs)
+        : maxx_(maxx), maxy_(maxy), pixel_x_(pixel_x), pixel_y_(pixel_y),
+          flux_(flux), flux_istd_(flux_istd), max_fracs_(max_fracs) {};
 
     template <typename T>
     bool operator() (const T* flux, const T* coords,
@@ -29,8 +30,10 @@ public:
                   T* residuals) const {
         T value = T(0.0), tmp;
         for (int i = 0; i < NUM_INT_TIME; ++i) {
-            if (!(evaluate_dbl_gaussian_psf<T>(max_frac_, pixel_x_, pixel_y_,
-                                               &(coords[2*i]), psfpars, &tmp)))
+            if (pixel_x_ < 0 || pixel_x_ > maxx_ ||
+                    pixel_y_ < 0 || pixel_y_ > maxy_) return false;
+            if (!(evaluate_psf<T>(max_fracs_, pixel_x_, pixel_y_,
+                                  &(coords[2*i]), psfpars, &tmp)))
                 return false;
             value += tmp / T(NUM_INT_TIME);
         }
@@ -40,7 +43,8 @@ public:
     };
 
 private:
-    double pixel_x_, pixel_y_, flux_, flux_istd_, max_frac_;
+    double maxx_, maxy_, pixel_x_, pixel_y_, flux_, flux_istd_;
+    const double* max_fracs_;
 };
 
 class GaussianPrior {
@@ -81,16 +85,14 @@ public:
         : strength_(1.0 / std) {};
 
     template <typename T>
-    bool operator() (const T* x1, const T* x2, T* residuals) const {
-        T xoff, yoff;
+    bool operator() (const T* x, T* residuals) const {
+        T xoff, yoff, d;
         for (int i = 0; i < NUM_INT_TIME - 1; ++i) {
-            xoff = x1[2*i+2] - x1[2*i];
-            yoff = x1[2*i+3] - x1[2*i+1];
+            xoff = x[2*i+2] - x[2*i];
+            yoff = x[2*i+3] - x[2*i+1];
+            d = xoff * xoff + yoff * yoff;
             residuals[i] = strength_ * sqrt(xoff * xoff + yoff * yoff);
         }
-        xoff = x2[0] - x1[2*NUM_INT_TIME-2];
-        xoff = x2[1] - x1[2*NUM_INT_TIME-1];
-        residuals[NUM_INT_TIME-1] = strength_ * sqrt(xoff * xoff + yoff * yoff);
         return true;
     };
 

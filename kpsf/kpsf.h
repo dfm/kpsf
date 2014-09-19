@@ -3,14 +3,13 @@
 
 namespace kpsf {
 
-int photometry_one (const int npix, const double* xpix, const double* ypix,
-                    const double* flux, const double* ferr,
-                    double* coords, double* coeffs, double* bg);
-
 int photometry_all (const int nt, const int npix, const double* xpix,
                     const double* ypix, const double* flux,
-                    const double* ferr, double* coords, double* coeffs,
-                    double* ff, double* bg);
+                    const double* ferr, double* model,
+                    double* coords, double* coeffs,
+                    double* ff, double* bg,
+                    const double max_frac, const double motion_reg,
+                    const double ff_reg);
 
 };
 

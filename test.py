@@ -53,49 +53,47 @@ time = np.ascontiguousarray(time[m], dtype=np.float64)
 flux = np.ascontiguousarray(flux[m], dtype=np.float64)
 ferr = np.ascontiguousarray(ferr[m], dtype=np.float64)
 
-print(np.sqrt(np.median((flux - np.median(flux))**2)))
-print(np.median(flux))
+max_frac = 0.2
 
 
-def fit_one(flux, ferr, bg, coords, coeffs):
-    # x0 = np.sum(xpix * flux) / np.sum(flux)
-    # y0 = np.sum(ypix * flux) / np.sum(flux)
+def fit_one(flux, ferr, bg, model, coords, coeffs):
     i = np.argmax(flux)
     x0, y0 = xpix[i], ypix[i]
 
     # Initialize the parameters.
-    coords[:] = [1.0, x0, y0]
+    coords[:] = np.array([x0, y0] * 5)
+    coords[:] += 1e-8 * np.random.randn(len(coords))
     coeffs[:] = [0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 5.0, 5.0, 0.0]
 
     # Do the initial least squares fit.
-    model = compute_model(xpix, ypix, coords, coeffs,
-                          np.ones((len(xpix),), dtype=np.float64),
-                          np.zeros((1,), dtype=np.float64))
-    A = np.vander(model, 2)
+    m = compute_model(max_frac, xpix, ypix, 1.0, coords, coeffs,
+                      np.ones((len(xpix),), dtype=np.float64), 0.0)
+    A = np.vander(m, 2)
     w = np.linalg.solve(np.dot(A.T, A), np.dot(A.T, flux))
-    coords[0] = w[0]
+    model[0] = w[0]
     bg[0] = w[1]
-
-    # Do the optimization.
-    # run_photometry_one(xpix, ypix, flux, ferr, coords, coeffs, bg)
 
 
 bg = np.zeros(len(flux), dtype=np.float64)
-coords = np.zeros((len(flux), 3), dtype=np.float64)
+model = np.zeros(len(flux), dtype=np.float64)
+coords = np.zeros((len(flux), 2 * 5), dtype=np.float64)
 coeffs = np.zeros((len(flux), 9), dtype=np.float64)
 for i in range(len(flux)):
     if not np.any(np.isfinite(flux[i])):
         continue
-    fit_one(flux[i], ferr[i], bg[i:i+1], coords[i, :], coeffs[i, :])
+    fit_one(flux[i], ferr[i], bg[i:i+1], model[i:i+1], coords[i, :],
+            coeffs[i, :])
 
 ff = np.ones(len(xpix), dtype=np.float64)
 coeffs = np.ascontiguousarray(np.median(coeffs, axis=0), dtype=np.float64)
-run_photometry_all(time, xpix, ypix, flux, ferr, coords, coeffs, ff, bg)
+run_photometry_all(time, xpix, ypix, flux, ferr, model, coords, coeffs, ff, bg,
+                   max_frac, 2.0, 1e-8)
+# assert 0
 
 print(coords)
 print(coeffs)
 
-pl.plot(time, coords[:, 0], ".k")
+pl.plot(time, model, ".k")
 # pl.plot(time, coords[:, 2], ".k")
 pl.plot(time, 100 * bg, ".r")
 pl.savefig("dude.png")
@@ -113,31 +111,37 @@ for n in range(len(flux)):
     ax = fig.add_subplot(221)
     ax.imshow(flux[n].reshape(shape), cmap="gray", interpolation="nearest",
               vmin=vmin, vmax=vmax)
-    ax.plot(coords[n, 2], coords[n, 1], "+r")
+    ax.plot(coords[n, 1::2], coords[n, 0::2], "r")
+    ax.plot(coords[n, 1::2], coords[n, 0::2], "+r")
     ax.set_xticklabels([])
     ax.set_yticklabels([])
 
     ax = fig.add_subplot(222)
-    model = compute_model(xpix, ypix, coords[n], coeffs, ff, bg[n:n+1])
-    ax.imshow(model.reshape(shape), cmap="gray",
+    m = compute_model(max_frac, xpix, ypix, model[n], coords[n], coeffs, ff,
+                      bg[n])
+    ax.imshow(m.reshape(shape), cmap="gray",
               interpolation="nearest", vmin=vmin, vmax=vmax)
-    ax.plot(coords[n, 2], coords[n, 1], "+r")
+    ax.plot(coords[n, 1::2], coords[n, 0::2], "r")
+    ax.plot(coords[n, 1::2], coords[n, 0::2], "+r")
     ax.set_xticklabels([])
     ax.set_yticklabels([])
 
     ax = fig.add_subplot(223)
-    ax.imshow((flux[n] - model).reshape(shape), cmap="gray",
+    ax.imshow((flux[n] - m).reshape(shape), cmap="gray",
               interpolation="nearest")
-    ax.plot(coords[n, 2], coords[n, 1], "+r")
+    ax.plot(coords[n, 1::2], coords[n, 0::2], "r")
+    ax.plot(coords[n, 1::2], coords[n, 0::2], "+r")
     ax.set_xticklabels([])
     ax.set_yticklabels([])
 
     ax = fig.add_subplot(224)
     ax.imshow(ff.reshape(shape), cmap="gray",
               interpolation="nearest")
-    ax.plot(coords[n, 2], coords[n, 1], "+r")
+    ax.plot(coords[n, 1::2], coords[n, 0::2], "r")
+    ax.plot(coords[n, 1::2], coords[n, 0::2], "+r")
     ax.set_xticklabels([])
     ax.set_yticklabels([])
 
     pl.savefig("frames/{0:05d}.png".format(i))
     i += 1
+    print(i)

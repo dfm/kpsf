@@ -38,11 +38,11 @@ bool evaluate_dbl_gaussian_psf (const double max_frac,
                                 const T* coords, const T* params,
                                 T* value)
 {
-    T f0 = coords[0],
-      x0 = coords[1],
-      y0 = coords[2],
+    T x0 = coords[0],
+      y0 = coords[1],
       frac = max_frac / (1.0 + exp(-params[0])),
       val;
+    if (params[0] < -100.0) frac = T(0.0);
 
     // Evaluate the first Gaussian.
     bool flag = gaussian_eval (x - x0, y - y0, &(params[1]), value);
@@ -54,7 +54,7 @@ bool evaluate_dbl_gaussian_psf (const double max_frac,
     flag = gaussian_eval (x - x0 + xoff, y - y0 + yoff, &(params[6]), &val);
     if (!flag) return false;
 
-    *value = f0 * (frac * val + (1.0 - frac) * (*value));
+    *value = frac * val + (1.0 - frac) * (*value);
     return true;
 }
 

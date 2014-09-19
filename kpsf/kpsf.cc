@@ -12,69 +12,52 @@ using ceres::CostFunction;
 using ceres::AutoDiffCostFunction;
 
 using kpsf::PixelResidual;
-using kpsf::CalibratedPixelResidual;
 using kpsf::GaussianPrior;
-
-// int kpsf::photometry_one (const int npix, const double* xpix,
-//                           const double* ypix, const double* flux,
-//                           const double* ferr, double* coords, double* coeffs,
-//                           double* bg)
-// {
-//     int i;
-//     Problem problem;
-//     for (i = 0; i < npix; ++i) {
-//         CalibratedPixelResidual* res =
-//             new CalibratedPixelResidual(xpix[i], ypix[i], flux[i], 1.0 / ferr[i]);
-//         CostFunction* cost =
-//             new AutoDiffCostFunction<CalibratedPixelResidual, 1, 3, 9, 1> (res);
-//         // ceres::SoftLOneLoss* loss =
-//         //     new ceres::SoftLOneLoss(loss_scale);
-//         problem.AddResidualBlock(cost, NULL, coords, coeffs, bg);
-//     }
-//
-//     // Set up the solver.
-//     Solver::Options options;
-//     options.max_num_iterations = 100;
-//     options.linear_solver_type = ceres::DENSE_QR;
-//     // options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-//     options.dense_linear_algebra_library_type = ceres::LAPACK;
-//     options.minimizer_progress_to_stdout = true;
-//
-//     // Do the solve and report the results.
-//     Solver::Summary summary;
-//     Solve(options, &problem, &summary);
-//     std::cout << summary.BriefReport() << std::endl;
-//
-//     return 0;
-// }
+using kpsf::SmoothPrior;
 
 int kpsf::photometry_all (const int nt, const int npix, const double* xpix,
                           const double* ypix, const double* flux,
-                          const double* ferr, double* coords, double* coeffs,
-                          double* ff, double* bg)
+                          const double* ferr, double* model,
+                          double* coords, double* coeffs,
+                          double* ff, double* bg,
+                          const double max_frac,
+                          const double motion_reg,
+                          const double ff_reg)
 {
-    int i, j, ind;
+    int i, j, k, ind;
     Problem problem;
+    CostFunction* cost;
     for (i = 0; i < nt; ++i) {
         for (j = 0; j < npix; ++j) {
             ind = i*npix+j;
             PixelResidual* res =
-                new PixelResidual(xpix[j], ypix[j], flux[ind], 1./ferr[ind]);
-            CostFunction* cost =
-                new AutoDiffCostFunction<PixelResidual, 1, 3, 9, 1, 1> (res);
+                new PixelResidual(max_frac, xpix[j], ypix[j], flux[ind],
+                                  1./ferr[ind]);
+            cost = new AutoDiffCostFunction<PixelResidual, 1, 1,
+                                            2*NUM_INT_TIME, 9, 1, 1> (res);
             // ceres::SoftLOneLoss* loss =
             //     new ceres::SoftLOneLoss(loss_scale);
-            problem.AddResidualBlock(cost, NULL,
-                                     &(coords[i*3]), coeffs, &(bg[i]), &(ff[j]));
+            problem.AddResidualBlock(cost, NULL, &(model[i]),
+                                     &(coords[i*2*NUM_INT_TIME]),
+                                     coeffs, &(bg[i]), &(ff[j]));
 
-            cost = new AutoDiffCostFunction<GaussianPrior, 1, 1> (
-                new GaussianPrior(1.0, 0.1));
-            problem.AddResidualBlock(cost, NULL, &(ff[j]));
         }
     }
 
-    // CostFunction* cost = new AutoDiffCostFunction<PSFPrior, 1, 2> (new PSFPrior(2.0));
-    // problem.AddResidualBlock(cost, NULL, &(coeffs[4]));
+    for (k = 0; k < nt - 1; ++k) {
+        cost = new AutoDiffCostFunction<SmoothPrior, NUM_INT_TIME,
+                                        2*NUM_INT_TIME, 2*NUM_INT_TIME> (
+            new SmoothPrior(motion_reg));
+        problem.AddResidualBlock(cost, NULL,
+                                 &(coords[2*k*NUM_INT_TIME]),
+                                 &(coords[2*(k+1)*NUM_INT_TIME]));
+    }
+
+    for (j = 0; j < npix; ++j) {
+        cost = new AutoDiffCostFunction<GaussianPrior, 1, 1> (
+            new GaussianPrior(1.0, ff_reg));
+        problem.AddResidualBlock(cost, NULL, &(ff[j]));
+    }
 
     // Set up the solver.
     Solver::Options options;

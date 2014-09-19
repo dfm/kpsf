@@ -3,50 +3,44 @@
 
 #include "psf.h"
 
+#define NUM_INT_TIME 5
+
 namespace kpsf {
 
 class PixelResidual {
 public:
     PixelResidual (const double pixel_x, const double pixel_y,
-                   const double flux, const double flux_istd)
+                   const double flux, const double flux_istd,
+                   const double max_frac)
         : pixel_x_(pixel_x), pixel_y_(pixel_y), flux_(flux),
-          flux_istd_(flux_istd) {};
+          flux_istd_(flux_istd), max_frac_(max_frac) {};
 
     template <typename T>
-    bool operator() (const T* coords, const T* psfpars,
+    bool operator() (const T* flux, const T* coords,
+                     const T* psfpars,
                      const T* background, const T* response,
                      T* residuals) const {
-        return compute(coords, psfpars, background, response, residuals);
+        return compute(flux, coords, psfpars, background, response, residuals);
     };
 
     template <typename T>
-    bool compute (const T* coords, const T* psfpars,
+    bool compute (const T* flux, const T* coords, const T* psfpars,
                   const T* background, const T* response,
                   T* residuals) const {
-        T value;
-        if (!(evaluate_dbl_gaussian_psf<T>(0.2, pixel_x_, pixel_y_, coords,
-                                           psfpars, &value))) return false;
-        value = response[0] * value + background[0];
+        T value = T(0.0), tmp;
+        for (int i = 0; i < NUM_INT_TIME; ++i) {
+            if (!(evaluate_dbl_gaussian_psf<T>(max_frac_, pixel_x_, pixel_y_,
+                                               &(coords[2*i]), psfpars, &tmp)))
+                return false;
+            value += tmp / T(NUM_INT_TIME);
+        }
+        value = response[0] * (flux[0] * value + background[0]);
         residuals[0] = (value - flux_) * flux_istd_;
         return true;
     };
 
 private:
-    double pixel_x_, pixel_y_, flux_, flux_istd_;
-};
-
-class CalibratedPixelResidual : public PixelResidual {
-public:
-    CalibratedPixelResidual (const double pixel_x, const double pixel_y,
-                             const double flux, const double flux_istd)
-        : PixelResidual(pixel_x, pixel_y, flux, flux_istd) {};
-
-    template <typename T>
-    bool operator() (const T* coords, const T* psfpars,
-                     const T* background, T* residuals) const {
-        T response = T(1.0);
-        return compute(coords, psfpars, background, &response, residuals);
-    };
+    double pixel_x_, pixel_y_, flux_, flux_istd_, max_frac_;
 };
 
 class GaussianPrior {
@@ -74,6 +68,29 @@ public:
         T xoff = psfpars[0],
           yoff = psfpars[1];
         residuals[0] = strength_ * sqrt(xoff * xoff + yoff * yoff);
+        return true;
+    };
+
+private:
+    double strength_;
+};
+
+class SmoothPrior {
+public:
+    SmoothPrior (const double std)
+        : strength_(1.0 / std) {};
+
+    template <typename T>
+    bool operator() (const T* x1, const T* x2, T* residuals) const {
+        T xoff, yoff;
+        for (int i = 0; i < NUM_INT_TIME - 1; ++i) {
+            xoff = x1[2*i+2] - x1[2*i];
+            yoff = x1[2*i+3] - x1[2*i+1];
+            residuals[i] = strength_ * sqrt(xoff * xoff + yoff * yoff);
+        }
+        xoff = x2[0] - x1[2*NUM_INT_TIME-2];
+        xoff = x2[1] - x1[2*NUM_INT_TIME-1];
+        residuals[NUM_INT_TIME-1] = strength_ * sqrt(xoff * xoff + yoff * yoff);
         return true;
     };
 

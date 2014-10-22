@@ -2,8 +2,7 @@
 #define _KPSF_RESIDUAL_H_
 
 #include "psf.h"
-
-#define NUM_INT_TIME 3
+#include "constants.h"
 
 namespace kpsf {
 
@@ -28,10 +27,11 @@ public:
     bool compute (const T* flux, const T* coords, const T* psfpars,
                   const T* background, const T* response,
                   T* residuals) const {
-        T value = T(0.0), tmp;
+        T value = T(0.0), tmp, x, y;
         for (int i = 0; i < NUM_INT_TIME; ++i) {
-            if (pixel_x_ < 0 || pixel_x_ > maxx_ ||
-                    pixel_y_ < 0 || pixel_y_ > maxy_) return false;
+            x = coords[2*i];
+            y = coords[2*i+1];
+            if (x < 0.0 || x > maxx_ || y < 0.0 || y > maxy_) return false;
             if (!(evaluate_psf<T>(max_fracs_, pixel_x_, pixel_y_,
                                   &(coords[2*i]), psfpars, &tmp)))
                 return false;
@@ -64,19 +64,40 @@ private:
 
 class PSFPrior {
 public:
-    PSFPrior (const double std)
-        : strength_(1.0 / std) {};
+    PSFPrior (const double pos_std, const double det_std)
+        : pos_strength_(1.0 / pos_std), det_strength_(1.0 / det_std) {};
 
     template <typename T>
-    bool operator() (const T* psfpars, T* residuals) const {
-        T xoff = psfpars[0],
-          yoff = psfpars[1];
-        residuals[0] = strength_ * sqrt(xoff * xoff + yoff * yoff);
+    bool operator() (const T* params, T* residuals) const {
+        T xoff, yoff, r2,
+          xvar = params[0],
+          yvar = params[1],
+          covar = params[2],
+          det0 = xvar * yvar - covar * covar, det1;
+        for (int i = 0; i < NUM_PSF_COMP - 1; ++i) {
+            int ind = 3 + i * 6;
+
+            // Compute the regularization on the position.
+            xoff = params[ind+1];
+            yoff = params[ind+2];
+            r2 = xoff*xoff + yoff*yoff;
+            if (r2 > 0.0) residuals[2*i] = pos_strength_ * sqrt(r2);
+            else residuals[2*i] = T(0.0);
+
+            // Compute the regularization on the relative determinant.
+            xvar = params[ind+3];
+            yvar = params[ind+4];
+            covar = params[ind+5];
+            det1 = xvar * yvar - covar * covar;
+            if (det1 < det0) residuals[2*i+1] = det_strength_ * (det0 - det1);
+            else residuals[2*i+1] = T(0.0);
+            det0 = det1;
+        }
         return true;
     };
 
 private:
-    double strength_;
+    double pos_strength_, det_strength_;
 };
 
 class SmoothPrior {

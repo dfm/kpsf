@@ -12,23 +12,27 @@ import matplotlib.pyplot as pl
 from kpsf._kpsf import (compute_model, run_photometry_all,
                         N_INT_TIME, N_PSF_COMP)
 
-data = fitsio.read("kplr060021426-2014044044430_lpd-targ.fits")
+# data = fitsio.read("data/ktwo202065500-c00_lpd-targ.fits.gz")
+data = fitsio.read("data/kplr060021426-2014044044430_lpd-targ.fits")
 time = data["TIME"]
-flux = data["FLUX"]
-ferr = data["FLUX_ERR"]
+flux = np.array(data["RAW_CNTS"], dtype=np.float64)
+ferr = np.sqrt(flux)
+# flux = data["FLUX"]
+# ferr = data["FLUX_ERR"]
 
 x0, y0 = np.mean([np.unravel_index(np.argmax(f), f.shape) for f in flux],
                  axis=0)
 x0, y0 = map(int, map(np.round, [x0, y0]))
 print(x0, y0)
-d = 7
+d = 5
 
 flux = flux[:, x0-d:x0+d+1, y0-d:y0+d+1]
 ferr = ferr[:, x0-d:x0+d+1, y0-d:y0+d+1]
 
-mu = np.mean(flux)
-flux /= mu
-ferr /= mu
+# mu = np.median(flux)
+# print(float(mu))
+# flux = flux / mu
+# ferr = ferr / mu
 
 xpix, ypix = np.meshgrid(range(flux.shape[1]), range(flux.shape[2]),
                          indexing="ij")
@@ -39,29 +43,29 @@ shape = flux[0].shape
 flux = flux.reshape((len(flux), -1))
 ferr = ferr.reshape((len(ferr), -1))
 
-# m = (np.sum(flux, axis=1) > 0.0)
-m = (np.sum(flux, axis=1) > 0.0) * (np.arange(len(flux)) % 3 == 0)
+m = (np.sum(flux, axis=1) > 0.0)
+# m = (np.sum(flux, axis=1) > 0.0) * (np.arange(len(flux)) % 3 == 0)
 # m = (np.sum(flux, axis=1) > 0.0) * (np.arange(len(flux)) < 100)
 time = np.ascontiguousarray(time[m], dtype=np.float64)
 flux = np.ascontiguousarray(flux[m], dtype=np.float64)
 ferr = np.ascontiguousarray(ferr[m], dtype=np.float64)
 
-max_fracs = np.array([0.9] * (N_PSF_COMP - 1))
+max_fracs = np.array([1.0] * (N_PSF_COMP - 1))
 
 
 def fit_one(flux, ferr, bg, model, coords, coeffs):
-    # f2 = flux ** 2
-    # x0 = np.sum(f2 * xpix) / np.sum(f2)
-    # y0 = np.sum(f2 * ypix) / np.sum(f2)
-    i = np.argmax(flux)
-    x0, y0 = xpix[i], ypix[i]
+    f2 = (flux - np.median(flux)) ** 2
+    x0 = np.sum(f2 * xpix) / np.sum(f2)
+    y0 = np.sum(f2 * ypix) / np.sum(f2)
+    # i = np.argmax(flux)
+    # x0, y0 = xpix[i], ypix[i]
 
     # Initialize the parameters.
     coords[:] = np.array([x0, y0] * N_INT_TIME)
     coords[:] += 1e-8 * np.random.randn(len(coords))
     coeffs[:] = ([1.0, 1.0, 0.0]
                  + [v for j in range(N_PSF_COMP-1)
-                    for v in [0.0, 0.0, 0.0, 5.0, 5.0, 0.0]])
+                    for v in [-100.0, 0.0, 0.0, 5.0+j, 5.0+j, 0.0]])
 
     # Do the initial least squares fit.
     m = compute_model(max_fracs, xpix, ypix, 1.0, coords, coeffs,
@@ -75,7 +79,7 @@ def fit_one(flux, ferr, bg, model, coords, coeffs):
 bg = np.zeros(len(flux), dtype=np.float64)
 model = np.zeros(len(flux), dtype=np.float64)
 coords = np.zeros((len(flux), 2 * N_INT_TIME), dtype=np.float64)
-coeffs = np.zeros((len(flux), 6*3 - 3), dtype=np.float64)
+coeffs = np.zeros((len(flux), 6*N_PSF_COMP - 3), dtype=np.float64)
 for i in range(len(flux)):
     if not np.any(np.isfinite(flux[i])):
         continue
@@ -85,17 +89,19 @@ for i in range(len(flux)):
 ff = np.ones(len(xpix), dtype=np.float64)
 coeffs = np.ascontiguousarray(np.median(coeffs, axis=0), dtype=np.float64)
 run_photometry_all(time, xpix, ypix, flux, ferr, model, coords, coeffs, ff, bg,
-                   max_fracs, 1.0, 1e-6)
+                   max_fracs, 0.1, 1e-10)
 # assert 0
 
-print(coords)
-print(coeffs)
+# print(coords)
+# print(coeffs)
 
-print(np.std(model))
+mu = np.median(model)
+print(np.sqrt(np.median((model - mu) ** 2)) / mu)
 
+pl.clf()
 pl.plot(time, model, ".k")
 # pl.plot(time, coords[:, 2], ".k")
-pl.plot(time, 100 * bg, ".r")
+pl.plot(time, bg, ".r")
 pl.savefig("dude.png")
 assert 0
 

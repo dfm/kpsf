@@ -8,6 +8,12 @@ cimport numpy as np
 DTYPE = np.float64
 ctypedef np.float64_t DTYPE_t
 
+cdef extern from "constants.h":
+    cdef int NUM_INT_TIME
+    cdef int NUM_PSF_COMP
+N_INT_TIME = NUM_INT_TIME
+N_PSF_COMP = NUM_PSF_COMP
+
 cdef extern from "kpsf.h" namespace "kpsf":
     cdef int photometry_all (const int nt, const int npix,
                              const double maxx, const double maxy,
@@ -17,14 +23,6 @@ cdef extern from "kpsf.h" namespace "kpsf":
                              double* coords, double* coeffs, double* ff,
                              double* bg, const double* max_fracs,
                              const double motion_reg, const double ff_reg)
-
-cdef extern from "residual.h":
-    cdef int NUM_INT_TIME
-N_INT_TIME = NUM_INT_TIME
-
-cdef extern from "psf.h":
-    cdef int NUM_PSF_COMP
-N_PSF_COMP = NUM_PSF_COMP
 
 cdef extern from "psf.h" namespace "kpsf":
     cdef int evaluate_psf[T] (const double* max_fracs,

@@ -16,6 +16,7 @@ using ceres::AutoDiffCostFunction;
 using kpsf::PixelResidual;
 using kpsf::GaussianPrior;
 using kpsf::SmoothPrior;
+using kpsf::PSFPrior;
 
 int kpsf::photometry_all (const int nt, const int npix,
                           const double maxx, const double maxy,
@@ -62,6 +63,11 @@ int kpsf::photometry_all (const int nt, const int npix,
             new GaussianPrior(1.0, ff_reg));
         problem.AddResidualBlock(cost, NULL, &(ff[j]));
     }
+
+    cost = new AutoDiffCostFunction<PSFPrior, 2*(NUM_PSF_COMP-1),
+                                    6*NUM_PSF_COMP-3> (
+        new PSFPrior(1e-4, 2.0));
+    problem.AddResidualBlock(cost, NULL, coeffs);
 
     // Set up the solver.
     Solver::Options options;

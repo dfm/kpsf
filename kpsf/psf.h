@@ -2,8 +2,7 @@
 #define _KPSF_PSF_H_
 
 #include <cmath>
-
-#define NUM_PSF_COMP 3
+#include "constants.h"
 
 namespace kpsf {
 

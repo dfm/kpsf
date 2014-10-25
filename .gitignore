@@ -8,3 +8,7 @@ prf
 .syntastic_c_config
 build
 kpsf/_kpsf.c*
+.ipynb_checkpoints
+libcfitsio.2.dylib
+bin
+*.fits.gz

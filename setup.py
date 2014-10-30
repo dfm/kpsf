@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     # The source files.
     src = [
-        "kpsf/kpsf.cc",
+        # "kpsf/kpsf.cc",
         "kpsf/_kpsf.pyx",
     ]
 

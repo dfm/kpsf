@@ -48,7 +48,9 @@ psfpars = np.array([1.0, 1.0, 0.0]
 ff = np.ones(len(xpix), dtype=np.float64)
 max_fracs = np.array([1.0] * (N_PSF_COMP - 1))
 
-run_photometry_all(W, time, xpix, ypix, flux, ferr, model, x0, a, psfpars,
-                   ff, bg, max_fracs, 1.0, 1e-5)
+n = len(W)
+run_photometry_all(W[:n], time[:n], xpix, ypix, flux[:n], ferr[:n],
+                   model[:n], x0, a, psfpars,
+                   ff, bg[:n], max_fracs, 1.0, 1e-5)
 
 print(model)

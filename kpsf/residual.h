@@ -1,78 +1,57 @@
 #ifndef _KPSF_RESIDUAL_H_
 #define _KPSF_RESIDUAL_H_
 
-#include "psf.h"
-#include "constants.h"
-
-#include <iostream>
+#include "model.h"
 
 namespace kpsf {
 
 class PixelResidual {
 public:
-    PixelResidual (const int nw, const double* w,
-                   const double pixel_x, const double pixel_y,
-                   const double flux, const double flux_istd,
-                   const double* max_fracs)
-        : nw_(nw), pixel_x_(pixel_x), pixel_y_(pixel_y),
-          flux_(flux), flux_istd_(flux_istd), max_fracs_(max_fracs), w_(w) {};
+    PixelResidual (
+        const double x0,            // The coordinates of the pixel.
+        const double y0,            // ...
+        const unsigned n_stars,     // The number of stars in the field.
+        const unsigned n_psf_comp,  // The number of PSF components.
+        const double flux,          // The measured flux in this pixel.
+        const double flux_istd      // The inverse uncertainty on flux.
+    ) : n_stars_(n_stars), n_psf_comp_(n_psf_comp),
+        x0_(x0), y0_(y0), flux_(flux), flux_istd_(flux_istd) {};
 
     template <typename T>
-    bool operator() (const T* fluxes, const T* x0s, const T* a,
-                     const T* psfpars,
-                     const T* background, const T* response,
-                     T* residuals) const {
-        return compute(fluxes, x0s, a, psfpars, background, response, residuals);
+    bool operator() (
+            const T* fluxes,     // The n_stars fluxes.
+            const T* origin,     // The 2-vector coords of the frame.
+            const T* offsets,    // The (n_stars,2) offset vectors for each star.
+            const T* psfpars,    // The PSF parameters.
+            const T* bkg,        // The background level.
+            const T* response,   // The response in the pixel.
+            T* resid) const
+    {
+        return compute(fluxes, origin, offsets, psfpars, bkg, response,
+                       resid);
     };
 
     template <typename T>
-    bool compute (const T* fluxes, const T* x0s, const T* a, const T* psfpars,
-                  const T* background, const T* response,
-                  T* residuals) const {
-        T value = T(0.0), tmp, x, y;
-
-        for (int i = 0; i < NUM_STARS; ++i) {
-            // std::cout << i << std::endl;
-            // Compute the location of the star.
-            x = x0s[2*i];
-            y = x0s[2*i+1];
-            for (int j = 0; j < nw_; ++j) {
-                x += a[2 * (nw_ + j)] * w_[j];
-                y += a[2 * (nw_ + j) + 1] * w_[j];
-            }
-
-            // Evaluate the PSF for this star that the location of this pixel.
-            if (!(evaluate_psf<T>(max_fracs_, psfpars,
-                                  pixel_x_, pixel_y_,
-                                  x, y,
-                                  &tmp)))
-                return false;
-            value += fluxes[i] * tmp;
-        }
-
-        value = response[0] * (value + background[0]);
-        // std::cout << value << " " << flux_ << " " << flux_istd_ << std::endl;
-        residuals[0] = (value - flux_) * flux_istd_;
-
-        // for (int i = 0; i < NUM_INT_TIME; ++i) {
-        //     x = coords[2*i];
-        //     y = coords[2*i+1];
-        //     if (x < 0.0 || x > maxx_ || y < 0.0 || y > maxy_) return false;
-        //     if (!(evaluate_psf<T>(max_fracs_, pixel_x_, pixel_y_,
-        //                           &(coords[2*i]), psfpars, &tmp)))
-        //         return false;
-        //     value += tmp / T(NUM_INT_TIME);
-        // }
-        // value = response[0] * (flux[0] * value + background[0]);
-        // residuals[0] = (value - flux_) * flux_istd_;
-
+    bool compute (
+            const T* fluxes,     // The n_stars fluxes.
+            const T* origin,     // The 2-vector coords of the frame.
+            const T* offsets,    // The (n_stars,2) offset vectors for each star.
+            const T* psfpars,    // The PSF parameters.
+            const T* bkg,        // The background level.
+            const T* response,   // The response in the pixel.
+            T* resid) const
+    {
+        T value;
+        if (!(evaluate_pixel (x0_, y0_, n_stars_, n_psf_comp_, fluxes, origin,
+                              offsets, psfpars, bkg, response, &value)))
+            return false;
+        resid[0] = (value - flux_) * flux_istd_;
         return true;
     };
 
 private:
-    int nw_;
-    double pixel_x_, pixel_y_, flux_, flux_istd_;
-    const double* max_fracs_, * w_;
+    unsigned n_stars_, n_psf_comp_;
+    double x0_, y0_, flux_, flux_istd_;
 };
 
 class GaussianPrior {
@@ -128,26 +107,26 @@ private:
     double pos_strength_, det_strength_;
 };
 
-class SmoothPrior {
-public:
-    SmoothPrior (const double std)
-        : strength_(1.0 / std) {};
-
-    template <typename T>
-    bool operator() (const T* x, T* residuals) const {
-        T xoff, yoff, d;
-        for (int i = 0; i < NUM_INT_TIME - 1; ++i) {
-            xoff = x[2*i+2] - x[2*i];
-            yoff = x[2*i+3] - x[2*i+1];
-            d = xoff * xoff + yoff * yoff;
-            residuals[i] = strength_ * sqrt(xoff * xoff + yoff * yoff);
-        }
-        return true;
-    };
-
-private:
-    double strength_;
-};
+// class SmoothPrior {
+// public:
+//     SmoothPrior (const double std)
+//         : strength_(1.0 / std) {};
+//
+//     template <typename T>
+//     bool operator() (const T* x, T* residuals) const {
+//         T xoff, yoff, d;
+//         for (int i = 0; i < NUM_INT_TIME - 1; ++i) {
+//             xoff = x[2*i+2] - x[2*i];
+//             yoff = x[2*i+3] - x[2*i+1];
+//             d = xoff * xoff + yoff * yoff;
+//             residuals[i] = strength_ * sqrt(xoff * xoff + yoff * yoff);
+//         }
+//         return true;
+//     };
+//
+// private:
+//     double strength_;
+// };
 
 };
 

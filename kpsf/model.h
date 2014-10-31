@@ -70,7 +70,7 @@ bool evaluate_pixel (
     const unsigned n_stars,     // The number of stars in the field.
     const unsigned n_psf_comp,  // The number of PSF components.
     const T* fluxes,            // The n_stars fluxes.
-    const T* frame_center,      // The 2-vector coords of the frame.
+    const T* origin,            // The 2-vector coords of the frame.
     const T* offsets,           // The (n_stars,2) offset vectors for each star.
     const T* psfpars,           // The PSF parameters.
     const T* bkg,               // The background level.
@@ -83,8 +83,8 @@ bool evaluate_pixel (
     value[0] = T(0.0);
     for (i = 0; i < n_stars; ++i) {
         // Compute the coordinates of the star relative to the pixel.
-        dx = frame_center[0] + offsets[2*i  ] - x0;
-        dy = frame_center[1] + offsets[2*i+1] - y0;
+        dx = origin[0] + offsets[2*i  ] - x0;
+        dy = origin[1] + offsets[2*i+1] - y0;
         if (!(evaluate_psf (n_psf_comp, psfpars, dx, dy, &val))) return false;
         value[0] += fluxes[i] * val;
     }

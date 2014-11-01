@@ -10,10 +10,15 @@ np.import_array()
 DTYPE = np.float64
 ctypedef np.float64_t DTYPE_t
 
+cdef extern from "constants.h":
+    cdef int NUM_INT_TIME
+N_INT_TIME = NUM_INT_TIME
+
 cdef extern from "model.h" namespace "kpsf":
     cdef int evaluate_pixel[T] (
         const double x0,            # The coordinates of the pixel.
         const double y0,            # ...
+        const unsigned n_time,      # The number of time steps to integrate.
         const unsigned n_stars,     # The number of stars in the field.
         const unsigned n_psf_comp,  # The number of PSF components.
         const T* fluxes,            # The n_stars fluxes.
@@ -51,7 +56,7 @@ def compute_psf (np.ndarray[DTYPE_t, ndim=1, mode="c"] psfpars,
 def compute_scene (np.ndarray[DTYPE_t, ndim=1, mode="c"] xpix,
                    np.ndarray[DTYPE_t, ndim=1, mode="c"] ypix,
                    np.ndarray[DTYPE_t, ndim=1, mode="c"] fluxes,
-                   np.ndarray[DTYPE_t, ndim=1, mode="c"] frame_center,
+                   np.ndarray[DTYPE_t, ndim=2, mode="c"] origin,
                    np.ndarray[DTYPE_t, ndim=2, mode="c"] offsets,
                    np.ndarray[DTYPE_t, ndim=1, mode="c"] psfpars,
                    double bkg,
@@ -63,7 +68,9 @@ def compute_scene (np.ndarray[DTYPE_t, ndim=1, mode="c"] xpix,
     cdef unsigned n_stars = fluxes.shape[0]
     if n_stars != offsets.shape[0] or offsets.shape[1] != 2:
         raise ValueError("Offset matrix shape mismatch")
-    if frame_center.shape[0] != 2:
+
+    cdef unsigned n_time = origin.shape[0]
+    if origin.shape[1] != 2:
         raise ValueError("Frame center shape mismatch")
 
     cdef unsigned n_psf_comp = (psfpars.shape[0] + 3) // 6
@@ -76,8 +83,8 @@ def compute_scene (np.ndarray[DTYPE_t, ndim=1, mode="c"] xpix,
             np.empty(npix, dtype=DTYPE)
     for i in range(npix):
         flag = evaluate_pixel[double](
-                            xpix[i], ypix[i], n_stars, n_psf_comp,
-                            <double*>fluxes.data, <double*>frame_center.data,
+                            xpix[i], ypix[i], n_time, n_stars, n_psf_comp,
+                            <double*>fluxes.data, <double*>origin.data,
                             <double*>offsets.data, <double*>psfpars.data,
                             &bkg, &(response[i]), &val)
         result[i] = val
@@ -107,21 +114,22 @@ cdef extern from "kpsf.h" namespace "kpsf":
                              const unsigned yi,
                              const double flux,
                              const double ferr)
+        void run ()
 
 
-def solve (psf, time_series):
+def solve (time_series,
+           np.ndarray[DTYPE_t, ndim=2, mode="c"] fluxes,
+           np.ndarray[DTYPE_t, ndim=3, mode="c"] origin,
+           np.ndarray[DTYPE_t, ndim=2, mode="c"] offsets,
+           np.ndarray[DTYPE_t, ndim=1, mode="c"] psfpars,
+           np.ndarray[DTYPE_t, ndim=1, mode="c"] background,
+           np.ndarray[DTYPE_t, ndim=2, mode="c"] response):
     # Parse the dimensions.
-    cdef unsigned nt = np.sum(time_series.good_times)
-    cdef unsigned nx = time_series.shape[0]
-    cdef unsigned ny = time_series.shape[1]
+    cdef unsigned nt = fluxes.shape[0]
+    cdef unsigned nx = response.shape[0]
+    cdef unsigned ny = response.shape[1]
 
-    cdef np.ndarray[DTYPE_t, ndim=2, mode="c"] fluxes = time_series.fluxes
-    cdef np.ndarray[DTYPE_t, ndim=2, mode="c"] origin = time_series.origin
-    cdef np.ndarray[DTYPE_t, ndim=2, mode="c"] offsets = time_series.offsets
-    cdef np.ndarray[DTYPE_t, ndim=1, mode="c"] psfpars = psf.pars
-    cdef np.ndarray[DTYPE_t, ndim=1, mode="c"] background = time_series.background
-    cdef np.ndarray[DTYPE_t, ndim=2, mode="c"] response = time_series.response
-
+    # Initialize the solver.
     cdef Solver* solver = new Solver(nt, nx, ny,
                                      <double*>(fluxes.data),
                                      <double*>(origin.data),
@@ -129,3 +137,20 @@ def solve (psf, time_series):
                                      <double*>(psfpars.data),
                                      <double*>(background.data),
                                      <double*>(response.data))
+
+    # Loop over the frames and add the pixels to the model.
+    cdef unsigned t, xi, yi
+    for t in range(nt):
+        if not time_series.good_times[t]:
+            continue
+        frame = time_series.frames[t]
+        for xi in range(time_series.shape[0]):
+            for yi in range(time_series.shape[1]):
+                if not np.isfinite(frame.img[xi, yi]):
+                    continue
+                solver.add_data_point(t, xi, yi, frame.img[xi, yi],
+                                      frame.err_img[xi, yi])
+
+    # Run the solver.
+    solver.run()
+    del solver

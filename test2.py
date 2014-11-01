@@ -25,35 +25,37 @@ flux_images[flux_images == 0.0] = np.nan
 
 psf = PSF(0.25, 0.25, 0.0)
 psf.add_component(-1.5, 1.5, 1.5, -0.5, dx=0.05, dy=0.25)
+psf.add_component(-5.5, 4.0, 4.0)
 
 n = -1000
 ts = TimeSeries(times[n:], flux_images[n:], ferr_images[n:], quality[n:],
                 saddle=0.1)
+results = ts.solve(psf)
 
 
+pl.figure(figsize=(10, 10))
+for i, j in enumerate(np.arange(len(ts.frames))[ts.good_times]):
+    frame = ts.frames[j]
+    img = frame.predict(psf, origin=ts.origin[j], offsets=ts.offsets,
+                        response=ts.response)
+    shape = frame.shape
 
-# pl.figure(figsize=(10, 10))
-# for i, j in enumerate(np.arange(len(ts.frames))[ts.good_times]):
-#     frame = ts.frames[j]
-#     img = frame.predict(psf, origin=ts.motion[j], offsets=ts.offsets)
-#     shape = frame.shape
+    pl.clf()
+    pl.subplot(221)
+    pl.imshow(np.log(img.T), cmap="gray", interpolation="nearest")
+    pl.xlim(-0.5, shape[0]-0.5)
+    pl.ylim(-0.5, shape[1]-0.5)
 
-#     pl.clf()
-#     pl.subplot(221)
-#     pl.imshow(np.log(img.T), cmap="gray", interpolation="nearest")
-#     pl.xlim(-0.5, shape[0]-0.5)
-#     pl.ylim(-0.5, shape[1]-0.5)
+    pl.subplot(222)
+    pl.imshow(np.log(frame.img.T), cmap="gray", interpolation="nearest")
+    pl.xlim(-0.5, shape[0]-0.5)
+    pl.ylim(-0.5, shape[1]-0.5)
 
-#     pl.subplot(222)
-#     pl.imshow(np.log(frame.img.T), cmap="gray", interpolation="nearest")
-#     pl.xlim(-0.5, shape[0]-0.5)
-#     pl.ylim(-0.5, shape[1]-0.5)
-
-#     pl.subplot(223)
-#     pl.imshow((img - frame.img).T, cmap="gray", interpolation="nearest")
-#     pl.xlim(-0.5, shape[0]-0.5)
-#     pl.ylim(-0.5, shape[1]-0.5)
-#     pl.savefig("frames/{0:05d}.png".format(i))
+    pl.subplot(223)
+    pl.imshow(((img - frame.img) / img).T, cmap="gray", interpolation="nearest")
+    pl.xlim(-0.5, shape[0]-0.5)
+    pl.ylim(-0.5, shape[1]-0.5)
+    pl.savefig("frames/{0:05d}.png".format(i))
 
 assert 0
 

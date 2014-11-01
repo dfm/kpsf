@@ -18,6 +18,7 @@ class Frame(object):
         else:
             self.mask = mask
         self.img = img
+        self.err_img = err_img
 
         # Compute the pixel positions.
         self.shape = self.img.shape

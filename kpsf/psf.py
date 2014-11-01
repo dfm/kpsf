@@ -26,5 +26,11 @@ class PSF(object):
                         + [v for c in self.components for v in c],
                         dtype=np.float64)
 
+    @pars.setter
+    def pars(self, v):
+        self.var_x, self.var_y, self.var_xy = v[:3]
+        for i in range(len(self.components)):
+            self.components[i] = v[3+6*i:9+6*i]
+
     def __call__(self, dx, dy):
         return compute_psf(self.pars, dx, dy)

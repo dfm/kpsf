@@ -67,6 +67,7 @@ template <typename T>
 bool evaluate_pixel (
     const double x0,            // The coordinates of the pixel.
     const double y0,            // ...
+    const unsigned n_time,      // The number of time steps to integrate.
     const unsigned n_stars,     // The number of stars in the field.
     const unsigned n_psf_comp,  // The number of PSF components.
     const T* fluxes,            // The n_stars fluxes.
@@ -78,15 +79,18 @@ bool evaluate_pixel (
     T* value                    // The computed flux. (output)
 )
 {
-    unsigned i;
+    unsigned t, i;
     T dx, dy, val;
     value[0] = T(0.0);
-    for (i = 0; i < n_stars; ++i) {
-        // Compute the coordinates of the star relative to the pixel.
-        dx = origin[0] + offsets[2*i  ] - x0;
-        dy = origin[1] + offsets[2*i+1] - y0;
-        if (!(evaluate_psf (n_psf_comp, psfpars, dx, dy, &val))) return false;
-        value[0] += fluxes[i] * val;
+    for (t = 0; t < n_time; ++t) {
+        for (i = 0; i < n_stars; ++i) {
+            // Compute the coordinates of the star relative to the pixel.
+            dx = origin[2*t  ] + offsets[2*i  ] - x0;
+            dy = origin[2*t+1] + offsets[2*i+1] - y0;
+            if (!(evaluate_psf (n_psf_comp, psfpars, dx, dy, &val)))
+                return false;
+            value[0] += fluxes[i] * val / T(n_time);
+        }
     }
     value[0] = response[0] * (value[0] + bkg[0]);
     return true;

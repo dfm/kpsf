@@ -8,6 +8,7 @@ import numpy as np
 from itertools import izip
 
 from .frame import Frame
+from ._kpsf import solve, N_INT_TIME
 
 
 class TimeSeries(object):
@@ -74,26 +75,59 @@ class TimeSeries(object):
             self.frames[t].coords = current
 
         # Approximate the frame motion as the motion of the brightest star.
-        self.origin = np.nan + np.zeros((len(self.frames), 2))
+        self.origin = np.nan + np.zeros((len(self.frames), N_INT_TIME, 2))
         for t, node in enumerate(self.frames):
             if not len(node):
                 continue
-            self.origin[t] = node.coords["x"][0], node.coords["y"][0]
+            self.origin[t, None, :] = node.coords["x"][0], node.coords["y"][0]
 
         # Find the list of times that were acceptable.
-        self.good_times = np.all(np.isfinite(self.origin), axis=1)
+        self.good_times = np.all(np.isfinite(self.origin), axis=(1, 2))
 
         # Center the motion and compute the mean offsets.
         self.origin[self.good_times] -= np.mean(self.origin[self.good_times],
                                                 axis=0)
         self.offsets = np.zeros((ns, 2))
         for i in np.arange(len(self.frames))[self.good_times]:
-            cen = self.origin[i]
+            cen = self.origin[i, 0]
             node = self.frames[i]
             self.offsets[:, 0] += node.coords["x"] - cen[0]
             self.offsets[:, 1] += node.coords["y"] - cen[1]
         self.offsets /= np.sum(self.good_times)
 
-        # Save the backgrounds, fluxes, and pixel responses.
-        self.response = np.ones(self.shape)
-        # self.background = np.array([np.median(n.coords["bkg"]) if n is  for n in
+    def solve(self, psf):
+        nt = np.sum(self.good_times)
+        ns = len(self.offsets)
+        norm = psf(0.0, 0.0)
+
+        # Initialize the fluxes and backgrounds.
+        response = np.ones(self.shape, dtype=np.float64)
+        fluxes = np.empty((nt, ns), dtype=np.float64)
+        background = np.empty(nt, dtype=np.float64)
+        for i, j in enumerate(np.arange(len(self.frames))[self.good_times]):
+            frame = self.frames[j]
+            fluxes[i] = frame.coords["flux"] / norm
+            background[i] = np.median(frame.coords["bkg"])
+
+        # Pull out pointers to the parameters.
+        psfpars = psf.pars
+        origin = np.ascontiguousarray(self.origin[self.good_times],
+                                      dtype=np.float64)
+        offsets = self.offsets
+
+        # Run the solver.
+        solve(self, fluxes, origin, offsets, psfpars, background, response)
+
+        # Update the PSF.
+        psf.pars = psfpars
+        norm = psf(0.0, 0.0)
+
+        # Update the frames.
+        self.response = response
+        self.origin[self.good_times] = origin
+        for i, j in enumerate(np.arange(len(self.frames))[self.good_times]):
+            frame = self.frames[j]
+            frame.coords["flux"] = fluxes[i] * norm
+            frame.coords["bkg"] = background[i]
+
+        return self.time[self.good_times], fluxes, background

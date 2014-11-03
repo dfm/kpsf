@@ -109,11 +109,16 @@ cdef extern from "kpsf.h" namespace "kpsf":
             double* response    # The response in the pixel.
         )
 
-        void add_data_point (const unsigned t,
-                             const unsigned xi,
-                             const unsigned yi,
-                             const double flux,
-                             const double ferr)
+        int add_data_point (
+            const unsigned nt,
+            const unsigned ns,
+            const unsigned np,
+            const unsigned t,
+            const unsigned xi,
+            const unsigned yi,
+            const double flux,
+            const double ferr)
+
         void run ()
 
 
@@ -123,11 +128,17 @@ def solve (time_series,
            np.ndarray[DTYPE_t, ndim=2, mode="c"] offsets,
            np.ndarray[DTYPE_t, ndim=1, mode="c"] psfpars,
            np.ndarray[DTYPE_t, ndim=1, mode="c"] background,
-           np.ndarray[DTYPE_t, ndim=2, mode="c"] response):
+           np.ndarray[DTYPE_t, ndim=2, mode="c"] response,
+           int num_int=3):
     # Parse the dimensions.
     cdef unsigned nt = fluxes.shape[0]
+    cdef unsigned ns = fluxes.shape[1]
     cdef unsigned nx = response.shape[0]
     cdef unsigned ny = response.shape[1]
+
+    cdef unsigned n_psf_comp = (psfpars.shape[0] + 3) // 6
+    if (psfpars.shape[0] + 3) % 6 != 0:
+        raise ValueError("Invalid number of PSF components")
 
     # Initialize the solver.
     cdef Solver* solver = new Solver(nt, nx, ny,
@@ -140,6 +151,7 @@ def solve (time_series,
 
     # Loop over the frames and add the pixels to the model.
     cdef unsigned t, xi, yi
+    cdef int flag
     for t in range(nt):
         if not time_series.good_times[t]:
             continue
@@ -148,8 +160,12 @@ def solve (time_series,
             for yi in range(time_series.shape[1]):
                 if not np.isfinite(frame.img[xi, yi]):
                     continue
-                solver.add_data_point(t, xi, yi, frame.img[xi, yi],
-                                      frame.err_img[xi, yi])
+                flag = solver.add_data_point(num_int, ns, n_psf_comp,
+                                             t, xi, yi,
+                                             frame.img[xi, yi],
+                                             frame.err_img[xi, yi])
+                if flag != 0:
+                    raise RuntimeError("Couldn't add data point")
 
     # Run the solver.
     solver.run()

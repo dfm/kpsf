@@ -39,20 +39,24 @@ for i, j in enumerate(np.arange(len(ts.frames))[ts.good_times]):
     img = frame.predict(psf, origin=ts.origin[j], offsets=ts.offsets,
                         response=ts.response)
     shape = frame.shape
+    pos = ts.offsets[:, None, :] + ts.origin[j][None, :, :]
 
     pl.clf()
     pl.subplot(221)
     pl.imshow(np.log(img.T), cmap="gray", interpolation="nearest")
+    pl.plot(pos[:, :, 0], pos[:, :, 1], "+r")
     pl.xlim(-0.5, shape[0]-0.5)
     pl.ylim(-0.5, shape[1]-0.5)
 
     pl.subplot(222)
     pl.imshow(np.log(frame.img.T), cmap="gray", interpolation="nearest")
+    pl.plot(pos[:, :, 0], pos[:, :, 1], "+r")
     pl.xlim(-0.5, shape[0]-0.5)
     pl.ylim(-0.5, shape[1]-0.5)
 
     pl.subplot(223)
     pl.imshow(((img - frame.img) / img).T, cmap="gray", interpolation="nearest")
+    pl.plot(pos[:, :, 0], pos[:, :, 1], "+r")
     pl.xlim(-0.5, shape[0]-0.5)
     pl.ylim(-0.5, shape[1]-0.5)
     pl.savefig("frames/{0:05d}.png".format(i))

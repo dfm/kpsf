@@ -108,11 +108,13 @@ class TimeSeries(object):
             frame = self.frames[j]
             fluxes[i] = frame.coords["flux"] / norm
             background[i] = np.median(frame.coords["bkg"])
+        # fluxes[:, :] = np.median(fluxes, axis=0)[None, :]
 
         # Pull out pointers to the parameters.
         psfpars = psf.pars
         origin = np.ascontiguousarray(self.origin[self.good_times],
                                       dtype=np.float64)
+        origin += 1e-4 * np.random.randn(*(origin.shape))
         offsets = self.offsets
 
         # Run the solver.

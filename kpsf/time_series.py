@@ -87,6 +87,7 @@ class TimeSeries(object):
         # Center the motion and compute the mean offsets.
         self.origin[self.good_times] -= np.mean(self.origin[self.good_times],
                                                 axis=0)
+        self.origin[np.isnan(self.origin)] = 0.0
         self.offsets = np.zeros((ns, 2))
         for i in np.arange(len(self.frames))[self.good_times]:
             cen = self.origin[i, 0]
@@ -108,7 +109,7 @@ class TimeSeries(object):
             frame = self.frames[j]
             fluxes[i] = frame.coords["flux"] / norm
             background[i] = np.median(frame.coords["bkg"])
-        # fluxes[:, :] = np.median(fluxes, axis=0)[None, :]
+        fluxes[:, :] = np.median(fluxes, axis=0)[None, :]
 
         # Pull out pointers to the parameters.
         psfpars = psf.pars

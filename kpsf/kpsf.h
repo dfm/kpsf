@@ -8,34 +8,44 @@
 
 using ceres::Solve;
 using ceres::Problem;
+using ceres::CauchyLoss;
 using ceres::CostFunction;
 using ceres::AutoDiffCostFunction;
 
 using kpsf::PixelResidual;
 
 #define ADD_DATA_POINT(T, S, P)                                                   \
-        if (nt == (T) && ns == (S) && np == (P)) {                                \
+        if (n_int_ == (T) && n_star_ == (S) && n_psf_comp_ == (P)) {              \
             PixelResidual* res = new PixelResidual(xi, yi, (T), (S), (P),         \
                                                    flux, 1./ferr);                \
             CostFunction* cost = new AutoDiffCostFunction<                        \
                 PixelResidual,                                                    \
                 1,                   /* Size of the residual (one pixel).      */ \
-                NUM_STARS,           /* The fluxes of the stars at this time.  */ \
-                2 * NUM_INT_TIME,    /* The frame origin.                      */ \
-                2 * NUM_STARS,       /* The offset for each star.              */ \
-                6*NUM_PSF_COMP-3,    /* The parameters of the Gaussian PSF.    */ \
+                (S),                 /* The fluxes of the stars at this time.  */ \
+                2 * (T),             /* The frame origin.                      */ \
+                2 * (S),             /* The offset for each star.              */ \
+                6 * (P) - 3,         /* The parameters of the Gaussian PSF.    */ \
                 1,                   /* The sky level at this time.            */ \
                 1                    /* The (constant) response of this pixel. */ \
             > (res);                                                              \
-                                                                                \
-            problem_.AddResidualBlock(cost, NULL,                                 \
-                                    &(fluxes_[t*NUM_STARS]),                    \
-                                    &(origin_[2*NUM_INT_TIME*t]),               \
-                                    offsets_,                                   \
-                                    psfpars_,                                   \
-                                    &(bkg_[t]),                                 \
-                                    &(response_[nx_*xi + yi]));                 \
+                                                                                  \
+            problem_.AddResidualBlock(cost,                                       \
+                                      new CauchyLoss(5.0),                        \
+                                      &(fluxes_[t * (S)]),                        \
+                                      &(origin_[2 * (T) * t]),                    \
+                                      offsets_,                                   \
+                                      psfpars_,                                   \
+                                      &(bkg_[t]),                                 \
+                                      &(response_[ny_*xi + yi]));                 \
         } else
+
+#define CENTROID_REG(T)                                                         \
+    if (n_int_ == (T)) {                                                        \
+        CostFunction* cost =                                                    \
+            new AutoDiffCostFunction<CentroidRegularization, 2*(T), 2*(T)> (    \
+                new CentroidRegularization((T), 1e-1));                         \
+        problem_.AddResidualBlock(cost, NULL, &(origin_[2*i*(T)]));             \
+    } else
 
 namespace kpsf {
 
@@ -45,20 +55,45 @@ public:
         const unsigned nt,
         const unsigned nx,
         const unsigned ny,
+        const unsigned n_int,
+        const unsigned n_star,
+        const unsigned n_psf_comp,
         double* fluxes,     // The n_stars fluxes.
         double* origin,     // The 2-vector coords of the frame.
         double* offsets,    // The (n_stars,2) offset vectors for each star.
         double* psfpars,    // The PSF parameters.
         double* bkg,        // The background level.
         double* response    // The response in the pixel.
-    ) : nt_(nt), nx_(nx), ny_(ny), fluxes_(fluxes), origin_(origin),
-        offsets_(offsets), psfpars_(psfpars), bkg_(bkg), response_(response) {};
+    ) : nt_(nt), nx_(nx), ny_(ny), n_int_(n_int), n_star_(n_star),
+        n_psf_comp_(n_psf_comp), fluxes_(fluxes), origin_(origin),
+        offsets_(offsets), psfpars_(psfpars), bkg_(bkg), response_(response)
+    {
+        unsigned i, j;
 
+        // Apply regularization to the pixel response values.
+        for (i = 0; i < nx_; ++i) {
+            for (j = 0; j < ny_; ++j) {
+                CostFunction* cost =
+                    new AutoDiffCostFunction<L2Regularization, 1, 1> (
+                        new L2Regularization(1.0, 1e-2));
+                problem_.AddResidualBlock(cost, NULL, &(response_[i*ny_+j]));
+            }
+        }
+
+        for (i = 0; i < nt_; ++i) {
+            CENTROID_REG(1)
+            CENTROID_REG(3)
+            CENTROID_REG(5)
+            CENTROID_REG(7)
+            CENTROID_REG(9)
+            {
+                std::cerr << "Invalid number of integration steps" << std::endl;
+            }
+        }
+
+    };
 
     int add_data_point (
-        const unsigned nt,
-        const unsigned ns,
-        const unsigned np,
         const unsigned t,
         const unsigned xi,
         const unsigned yi,
@@ -262,7 +297,7 @@ public:
     void run () {
         // Set up the solver.
         ceres::Solver::Options options;
-        options.max_num_iterations = 100;
+        options.max_num_iterations = 500;
         // options.linear_solver_type = ceres::DENSE_QR;
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
         options.dense_linear_algebra_library_type = ceres::LAPACK;
@@ -275,7 +310,7 @@ public:
     };
 
 private:
-    const unsigned nt_, nx_, ny_;
+    const unsigned nt_, nx_, ny_, n_int_, n_star_, n_psf_comp_;
     double *fluxes_, *origin_, *offsets_, *psfpars_, *bkg_, *response_;
     Problem problem_;
 

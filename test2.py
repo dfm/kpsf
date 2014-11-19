@@ -25,12 +25,16 @@ flux_images[flux_images == 0.0] = np.nan
 
 psf = PSF(0.25, 0.25, 0.0)
 psf.add_component(-1.5, 1.5, 1.5, -0.5, dx=0.05, dy=0.25)
-psf.add_component(-5.5, 4.0, 4.0)
+for i in range(2):
+    psf.add_component(-5.5-4.*i, 4.+2*i, 4.+2*i)
+print((len(psf.pars) + 3) // 6)
+print(psf(0, 0))
 
-n = -1000
+n = -25
 ts = TimeSeries(times[n:], flux_images[n:], ferr_images[n:], quality[n:],
                 saddle=0.1)
 results = ts.solve(psf)
+assert 0
 
 
 pl.figure(figsize=(10, 10))

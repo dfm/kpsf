@@ -101,6 +101,9 @@ cdef extern from "kpsf.h" namespace "kpsf":
             const unsigned nt,
             const unsigned nx,
             const unsigned ny,
+            const unsigned n_int,
+            const unsigned n_star,
+            const unsigned n_psf_comp,
             double* fluxes,     # The n_stars fluxes.
             double* origin,     # The 2-vector coords of the frame.
             double* offsets,    # The (n_stars,2) offset vectors for each star.
@@ -110,9 +113,6 @@ cdef extern from "kpsf.h" namespace "kpsf":
         )
 
         int add_data_point (
-            const unsigned nt,
-            const unsigned ns,
-            const unsigned np,
             const unsigned t,
             const unsigned xi,
             const unsigned yi,
@@ -128,20 +128,26 @@ def solve (time_series,
            np.ndarray[DTYPE_t, ndim=2, mode="c"] offsets,
            np.ndarray[DTYPE_t, ndim=1, mode="c"] psfpars,
            np.ndarray[DTYPE_t, ndim=1, mode="c"] background,
-           np.ndarray[DTYPE_t, ndim=2, mode="c"] response,
-           int num_int=3):
+           np.ndarray[DTYPE_t, ndim=2, mode="c"] response):
     # Parse the dimensions.
     cdef unsigned nt = fluxes.shape[0]
     cdef unsigned ns = fluxes.shape[1]
+    cdef unsigned n_int = origin.shape[1]
     cdef unsigned nx = response.shape[0]
     cdef unsigned ny = response.shape[1]
+
+    if (origin.shape[0] != nt or origin.shape[2] != 2 or
+            offsets.shape[0] != ns or offsets.shape[1] != 2 or
+            background.shape[0] != nt or
+            time_series.shape[0] != nx or time_series.shape[1] != ny):
+        raise ValueError("Incompatible dimensions")
 
     cdef unsigned n_psf_comp = (psfpars.shape[0] + 3) // 6
     if (psfpars.shape[0] + 3) % 6 != 0:
         raise ValueError("Invalid number of PSF components")
 
     # Initialize the solver.
-    cdef Solver* solver = new Solver(nt, nx, ny,
+    cdef Solver* solver = new Solver(nt, nx, ny, n_int, ns, n_psf_comp,
                                      <double*>(fluxes.data),
                                      <double*>(origin.data),
                                      <double*>(offsets.data),
@@ -160,8 +166,7 @@ def solve (time_series,
             for yi in range(time_series.shape[1]):
                 if not np.isfinite(frame.img[xi, yi]):
                     continue
-                flag = solver.add_data_point(num_int, ns, n_psf_comp,
-                                             t, xi, yi,
+                flag = solver.add_data_point(t, xi, yi,
                                              frame.img[xi, yi],
                                              frame.err_img[xi, yi])
                 if flag != 0:

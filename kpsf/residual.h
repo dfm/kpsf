@@ -42,20 +42,20 @@ private:
     double x0_, y0_, flux_, flux_istd_;
 };
 
-// class GaussianPrior {
-// public:
-//     GaussianPrior (const double mean, const double std)
-//         : mean_(mean), istd_(1.0/std) {};
-//
-//     template <typename T>
-//     bool operator() (const T* value, T* residuals) const {
-//         residuals[0] = (value[0] - T(mean_)) * T(istd_);
-//         return true;
-//     };
-//
-// private:
-//     double mean_, istd_;
-// };
+class L2Regularization {
+public:
+    L2Regularization (const double mean, const double std)
+        : mean_(mean), istd_(1.0/std) {};
+
+    template <typename T>
+    bool operator() (const T* value, T* residuals) const {
+        residuals[0] = (value[0] - T(mean_)) * T(istd_);
+        return true;
+    };
+
+private:
+    double mean_, istd_;
+};
 
 // class PSFPrior {
 // public:
@@ -95,26 +95,25 @@ private:
 //     double pos_strength_, det_strength_;
 // };
 
-// class SmoothPrior {
-// public:
-//     SmoothPrior (const double std)
-//         : strength_(1.0 / std) {};
-//
-//     template <typename T>
-//     bool operator() (const T* x, T* residuals) const {
-//         T xoff, yoff, d;
-//         for (int i = 0; i < NUM_INT_TIME - 1; ++i) {
-//             xoff = x[2*i+2] - x[2*i];
-//             yoff = x[2*i+3] - x[2*i+1];
-//             d = xoff * xoff + yoff * yoff;
-//             residuals[i] = strength_ * sqrt(xoff * xoff + yoff * yoff);
-//         }
-//         return true;
-//     };
-//
-// private:
-//     double strength_;
-// };
+class CentroidRegularization {
+public:
+    CentroidRegularization (const unsigned n_int, const double std)
+        : n_int_(n_int), strength_(1.0 / std) {};
+
+    template <typename T>
+    bool operator() (const T* x, T* residuals) const {
+        unsigned i;
+        for (i = 0; i < n_int_; ++i) {
+            residuals[2*i  ] = strength_ * x[2*i  ];
+            residuals[2*i+1] = strength_ * x[2*i+1];
+        }
+        return true;
+    };
+
+private:
+    unsigned n_int_;
+    double strength_;
+};
 
 };
 

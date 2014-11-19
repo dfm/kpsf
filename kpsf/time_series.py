@@ -96,13 +96,16 @@ class TimeSeries(object):
             self.offsets[:, 1] += node.coords["y"] - cen[1]
         self.offsets /= np.sum(self.good_times)
 
-    def solve(self, psf):
+        self.response = np.ones(self.shape, dtype=np.float64)
+
+    def solve(self, psf, cauchy_strength=1.0, response_strength=100.0,
+              fit_response=1, fit_psf=1):
         nt = np.sum(self.good_times)
         ns = len(self.offsets)
         norm = psf(0.0, 0.0)
 
         # Initialize the fluxes and backgrounds.
-        response = np.ones(self.shape, dtype=np.float64)
+        response = np.array(self.response)
         fluxes = np.empty((nt, ns), dtype=np.float64)
         background = np.empty(nt, dtype=np.float64)
         for i, j in enumerate(np.arange(len(self.frames))[self.good_times]):
@@ -115,11 +118,13 @@ class TimeSeries(object):
         psfpars = psf.pars
         origin = np.ascontiguousarray(self.origin[self.good_times],
                                       dtype=np.float64)
-        origin += 1e-4 * np.random.randn(*(origin.shape))
+        np.random.seed(123)
+        origin += 1e-5 * np.random.randn(*(origin.shape))
         offsets = self.offsets
 
         # Run the solver.
-        solve(self, fluxes, origin, offsets, psfpars, background, response)
+        solve(self, fluxes, origin, offsets, psfpars, background, response,
+              cauchy_strength, response_strength, fit_response, fit_psf)
 
         # Update the PSF.
         psf.pars = psfpars

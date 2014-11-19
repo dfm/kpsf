@@ -25,15 +25,25 @@ flux_images[flux_images == 0.0] = np.nan
 
 psf = PSF(0.25, 0.25, 0.0)
 psf.add_component(-1.5, 1.5, 1.5, -0.5, dx=0.05, dy=0.25)
-for i in range(2):
-    psf.add_component(-5.5-4.*i, 4.+2*i, 4.+2*i)
+# for i in range(2):
+#     psf.add_component(-5.5-4.*i, 4.+2*i, 4.+2*i)
 print((len(psf.pars) + 3) // 6)
 print(psf(0, 0))
 
-n = -25
-ts = TimeSeries(times[n:], flux_images[n:], ferr_images[n:], quality[n:],
-                saddle=0.1)
-results = ts.solve(psf)
+blah = []
+
+n1, n2 = -45, -10
+s = range(n1, n2)
+psf = PSF(0.25, 0.25, 0.0)
+psf.add_component(-1.5, 1.5, 1.5, -0.5, dx=0.05, dy=0.25)
+# for i in range(2):
+#     psf.add_component(-5.5-4.*i, 4.+2*i, 4.+2*i)
+
+ts = TimeSeries(times[s], flux_images[s], ferr_images[s],
+                quality[s], saddle=0.1)
+results = ts.solve(psf, fit_response=0)
+# results = ts.solve(psf, fit_psf=0, response_strength=1e5)
+
 assert 0
 
 
@@ -59,10 +69,22 @@ for i, j in enumerate(np.arange(len(ts.frames))[ts.good_times]):
     pl.ylim(-0.5, shape[1]-0.5)
 
     pl.subplot(223)
-    pl.imshow(((img - frame.img) / img).T, cmap="gray", interpolation="nearest")
+    pl.imshow(((img - frame.img) / img).T, cmap="gray",
+              interpolation="nearest")
+    pl.colorbar()
     pl.plot(pos[:, :, 0], pos[:, :, 1], "+r")
     pl.xlim(-0.5, shape[0]-0.5)
     pl.ylim(-0.5, shape[1]-0.5)
+
+    pl.subplot(224)
+    pl.imshow(ts.response.T, cmap="gray",
+              interpolation="nearest")
+    pl.plot(pos[:, :, 0], pos[:, :, 1], "+r")
+    pl.xlim(-0.5, shape[0]-0.5)
+    pl.ylim(-0.5, shape[1]-0.5)
+
+    pl.title("{0} {1}".format(i, j))
+
     pl.savefig("frames/{0:05d}.png".format(i))
 
 assert 0

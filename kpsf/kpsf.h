@@ -30,7 +30,7 @@ using kpsf::PixelResidual;
             > (res);                                                              \
                                                                                   \
             problem_.AddResidualBlock(cost,                                       \
-                                      new CauchyLoss(5.0),                        \
+                                      new CauchyLoss(cauchy_strength),            \
                                       &(fluxes_[t * (S)]),                        \
                                       &(origin_[2 * (T) * t]),                    \
                                       offsets_,                                   \
@@ -58,6 +58,7 @@ public:
         const unsigned n_int,
         const unsigned n_star,
         const unsigned n_psf_comp,
+        const double response_strength,
         double* fluxes,     // The n_stars fluxes.
         double* origin,     // The 2-vector coords of the frame.
         double* offsets,    // The (n_stars,2) offset vectors for each star.
@@ -75,7 +76,7 @@ public:
             for (j = 0; j < ny_; ++j) {
                 CostFunction* cost =
                     new AutoDiffCostFunction<L2Regularization, 1, 1> (
-                        new L2Regularization(1.0, 1e-2));
+                        new L2Regularization(1.0, response_strength));
                 problem_.AddResidualBlock(cost, NULL, &(response_[i*ny_+j]));
             }
         }
@@ -98,7 +99,8 @@ public:
         const unsigned xi,
         const unsigned yi,
         const double flux,
-        const double ferr)
+        const double ferr,
+        const double cauchy_strength)
     {
         // We need to know some constants at compile time so here we're compiling
         // a different function for every combination we'll ever need (we hope).
@@ -108,193 +110,205 @@ public:
         // 2. number of stars, and
         // 3. the number of PSF components to use.
         //
-        ADD_DATA_POINT (1, 1, 1)
-        ADD_DATA_POINT (1, 1, 2)
-        ADD_DATA_POINT (1, 1, 3)
-        ADD_DATA_POINT (1, 1, 4)
-        ADD_DATA_POINT (1, 1, 5)
-        ADD_DATA_POINT (1, 2, 1)
-        ADD_DATA_POINT (1, 2, 2)
-        ADD_DATA_POINT (1, 2, 3)
-        ADD_DATA_POINT (1, 2, 4)
-        ADD_DATA_POINT (1, 2, 5)
-        ADD_DATA_POINT (1, 3, 1)
-        ADD_DATA_POINT (1, 3, 2)
-        ADD_DATA_POINT (1, 3, 3)
-        ADD_DATA_POINT (1, 3, 4)
-        ADD_DATA_POINT (1, 3, 5)
-        ADD_DATA_POINT (1, 4, 1)
-        ADD_DATA_POINT (1, 4, 2)
-        ADD_DATA_POINT (1, 4, 3)
-        ADD_DATA_POINT (1, 4, 4)
-        ADD_DATA_POINT (1, 4, 5)
-        ADD_DATA_POINT (1, 5, 1)
-        ADD_DATA_POINT (1, 5, 2)
-        ADD_DATA_POINT (1, 5, 3)
-        ADD_DATA_POINT (1, 5, 4)
-        ADD_DATA_POINT (1, 5, 5)
-        ADD_DATA_POINT (1, 6, 1)
-        ADD_DATA_POINT (1, 6, 2)
-        ADD_DATA_POINT (1, 6, 3)
-        ADD_DATA_POINT (1, 6, 4)
-        ADD_DATA_POINT (1, 6, 5)
-        ADD_DATA_POINT (1, 7, 1)
-        ADD_DATA_POINT (1, 7, 2)
-        ADD_DATA_POINT (1, 7, 3)
-        ADD_DATA_POINT (1, 7, 4)
-        ADD_DATA_POINT (1, 7, 5)
-        ADD_DATA_POINT (1, 8, 1)
-        ADD_DATA_POINT (1, 8, 2)
-        ADD_DATA_POINT (1, 8, 3)
-        ADD_DATA_POINT (1, 8, 4)
-        ADD_DATA_POINT (1, 8, 5)
-        ADD_DATA_POINT (1, 9, 1)
-        ADD_DATA_POINT (1, 9, 2)
-        ADD_DATA_POINT (1, 9, 3)
-        ADD_DATA_POINT (1, 9, 4)
-        ADD_DATA_POINT (1, 9, 5)
-        ADD_DATA_POINT (3, 1, 1)
-        ADD_DATA_POINT (3, 1, 2)
-        ADD_DATA_POINT (3, 1, 3)
-        ADD_DATA_POINT (3, 1, 4)
-        ADD_DATA_POINT (3, 1, 5)
-        ADD_DATA_POINT (3, 2, 1)
-        ADD_DATA_POINT (3, 2, 2)
-        ADD_DATA_POINT (3, 2, 3)
-        ADD_DATA_POINT (3, 2, 4)
-        ADD_DATA_POINT (3, 2, 5)
-        ADD_DATA_POINT (3, 3, 1)
-        ADD_DATA_POINT (3, 3, 2)
-        ADD_DATA_POINT (3, 3, 3)
-        ADD_DATA_POINT (3, 3, 4)
-        ADD_DATA_POINT (3, 3, 5)
-        ADD_DATA_POINT (3, 4, 1)
-        ADD_DATA_POINT (3, 4, 2)
-        ADD_DATA_POINT (3, 4, 3)
-        ADD_DATA_POINT (3, 4, 4)
-        ADD_DATA_POINT (3, 4, 5)
-        ADD_DATA_POINT (3, 5, 1)
-        ADD_DATA_POINT (3, 5, 2)
-        ADD_DATA_POINT (3, 5, 3)
-        ADD_DATA_POINT (3, 5, 4)
-        ADD_DATA_POINT (3, 5, 5)
+        /* ADD_DATA_POINT (1, 1, 1) */
+        /* ADD_DATA_POINT (1, 1, 2) */
+        /* ADD_DATA_POINT (1, 1, 3) */
+        /* ADD_DATA_POINT (1, 1, 4) */
+        /* ADD_DATA_POINT (1, 1, 5) */
+        /* ADD_DATA_POINT (1, 2, 1) */
+        /* ADD_DATA_POINT (1, 2, 2) */
+        /* ADD_DATA_POINT (1, 2, 3) */
+        /* ADD_DATA_POINT (1, 2, 4) */
+        /* ADD_DATA_POINT (1, 2, 5) */
+        /* ADD_DATA_POINT (1, 3, 1) */
+        /* ADD_DATA_POINT (1, 3, 2) */
+        /* ADD_DATA_POINT (1, 3, 3) */
+        /* ADD_DATA_POINT (1, 3, 4) */
+        /* ADD_DATA_POINT (1, 3, 5) */
+        /* ADD_DATA_POINT (1, 4, 1) */
+        /* ADD_DATA_POINT (1, 4, 2) */
+        /* ADD_DATA_POINT (1, 4, 3) */
+        /* ADD_DATA_POINT (1, 4, 4) */
+        /* ADD_DATA_POINT (1, 4, 5) */
+        /* ADD_DATA_POINT (1, 5, 1) */
+        /* ADD_DATA_POINT (1, 5, 2) */
+        /* ADD_DATA_POINT (1, 5, 3) */
+        /* ADD_DATA_POINT (1, 5, 4) */
+        /* ADD_DATA_POINT (1, 5, 5) */
+        /* ADD_DATA_POINT (1, 6, 1) */
+        /* ADD_DATA_POINT (1, 6, 2) */
+        /* ADD_DATA_POINT (1, 6, 3) */
+        /* ADD_DATA_POINT (1, 6, 4) */
+        /* ADD_DATA_POINT (1, 6, 5) */
+        /* ADD_DATA_POINT (1, 7, 1) */
+        /* ADD_DATA_POINT (1, 7, 2) */
+        /* ADD_DATA_POINT (1, 7, 3) */
+        /* ADD_DATA_POINT (1, 7, 4) */
+        /* ADD_DATA_POINT (1, 7, 5) */
+        /* ADD_DATA_POINT (1, 8, 1) */
+        /* ADD_DATA_POINT (1, 8, 2) */
+        /* ADD_DATA_POINT (1, 8, 3) */
+        /* ADD_DATA_POINT (1, 8, 4) */
+        /* ADD_DATA_POINT (1, 8, 5) */
+        /* ADD_DATA_POINT (1, 9, 1) */
+        /* ADD_DATA_POINT (1, 9, 2) */
+        /* ADD_DATA_POINT (1, 9, 3) */
+        /* ADD_DATA_POINT (1, 9, 4) */
+        /* ADD_DATA_POINT (1, 9, 5) */
+        /* ADD_DATA_POINT (3, 1, 1) */
+        /* ADD_DATA_POINT (3, 1, 2) */
+        /* ADD_DATA_POINT (3, 1, 3) */
+        /* ADD_DATA_POINT (3, 1, 4) */
+        /* ADD_DATA_POINT (3, 1, 5) */
+        /* ADD_DATA_POINT (3, 2, 1) */
+        /* ADD_DATA_POINT (3, 2, 2) */
+        /* ADD_DATA_POINT (3, 2, 3) */
+        /* ADD_DATA_POINT (3, 2, 4) */
+        /* ADD_DATA_POINT (3, 2, 5) */
+        /* ADD_DATA_POINT (3, 3, 1) */
+        /* ADD_DATA_POINT (3, 3, 2) */
+        /* ADD_DATA_POINT (3, 3, 3) */
+        /* ADD_DATA_POINT (3, 3, 4) */
+        /* ADD_DATA_POINT (3, 3, 5) */
+        /* ADD_DATA_POINT (3, 4, 1) */
+        /* ADD_DATA_POINT (3, 4, 2) */
+        /* ADD_DATA_POINT (3, 4, 3) */
+        /* ADD_DATA_POINT (3, 4, 4) */
+        /* ADD_DATA_POINT (3, 4, 5) */
+        /* ADD_DATA_POINT (3, 5, 1) */
+        /* ADD_DATA_POINT (3, 5, 2) */
+        /* ADD_DATA_POINT (3, 5, 3) */
+        /* ADD_DATA_POINT (3, 5, 4) */
+        /* ADD_DATA_POINT (3, 5, 5) */
         ADD_DATA_POINT (3, 6, 1)
         ADD_DATA_POINT (3, 6, 2)
         ADD_DATA_POINT (3, 6, 3)
         ADD_DATA_POINT (3, 6, 4)
         ADD_DATA_POINT (3, 6, 5)
-        ADD_DATA_POINT (3, 7, 1)
-        ADD_DATA_POINT (3, 7, 2)
-        ADD_DATA_POINT (3, 7, 3)
-        ADD_DATA_POINT (3, 7, 4)
-        ADD_DATA_POINT (3, 7, 5)
-        ADD_DATA_POINT (3, 8, 1)
-        ADD_DATA_POINT (3, 8, 2)
-        ADD_DATA_POINT (3, 8, 3)
-        ADD_DATA_POINT (3, 8, 4)
-        ADD_DATA_POINT (3, 8, 5)
-        ADD_DATA_POINT (3, 9, 1)
-        ADD_DATA_POINT (3, 9, 2)
-        ADD_DATA_POINT (3, 9, 3)
-        ADD_DATA_POINT (3, 9, 4)
-        ADD_DATA_POINT (3, 9, 5)
-        ADD_DATA_POINT (5, 1, 1)
-        ADD_DATA_POINT (5, 1, 2)
-        ADD_DATA_POINT (5, 1, 3)
-        ADD_DATA_POINT (5, 1, 4)
-        ADD_DATA_POINT (5, 1, 5)
-        ADD_DATA_POINT (5, 2, 1)
-        ADD_DATA_POINT (5, 2, 2)
-        ADD_DATA_POINT (5, 2, 3)
-        ADD_DATA_POINT (5, 2, 4)
-        ADD_DATA_POINT (5, 2, 5)
-        ADD_DATA_POINT (5, 3, 1)
-        ADD_DATA_POINT (5, 3, 2)
-        ADD_DATA_POINT (5, 3, 3)
-        ADD_DATA_POINT (5, 3, 4)
-        ADD_DATA_POINT (5, 3, 5)
-        ADD_DATA_POINT (5, 4, 1)
-        ADD_DATA_POINT (5, 4, 2)
-        ADD_DATA_POINT (5, 4, 3)
-        ADD_DATA_POINT (5, 4, 4)
-        ADD_DATA_POINT (5, 4, 5)
-        ADD_DATA_POINT (5, 5, 1)
-        ADD_DATA_POINT (5, 5, 2)
-        ADD_DATA_POINT (5, 5, 3)
-        ADD_DATA_POINT (5, 5, 4)
-        ADD_DATA_POINT (5, 5, 5)
-        ADD_DATA_POINT (5, 6, 1)
-        ADD_DATA_POINT (5, 6, 2)
-        ADD_DATA_POINT (5, 6, 3)
-        ADD_DATA_POINT (5, 6, 4)
-        ADD_DATA_POINT (5, 6, 5)
-        ADD_DATA_POINT (5, 7, 1)
-        ADD_DATA_POINT (5, 7, 2)
-        ADD_DATA_POINT (5, 7, 3)
-        ADD_DATA_POINT (5, 7, 4)
-        ADD_DATA_POINT (5, 7, 5)
-        ADD_DATA_POINT (5, 8, 1)
-        ADD_DATA_POINT (5, 8, 2)
-        ADD_DATA_POINT (5, 8, 3)
-        ADD_DATA_POINT (5, 8, 4)
-        ADD_DATA_POINT (5, 8, 5)
-        ADD_DATA_POINT (5, 9, 1)
-        ADD_DATA_POINT (5, 9, 2)
-        ADD_DATA_POINT (5, 9, 3)
-        ADD_DATA_POINT (5, 9, 4)
-        ADD_DATA_POINT (5, 9, 5)
-        ADD_DATA_POINT (7, 1, 1)
-        ADD_DATA_POINT (7, 1, 2)
-        ADD_DATA_POINT (7, 1, 3)
-        ADD_DATA_POINT (7, 1, 4)
-        ADD_DATA_POINT (7, 1, 5)
-        ADD_DATA_POINT (7, 2, 1)
-        ADD_DATA_POINT (7, 2, 2)
-        ADD_DATA_POINT (7, 2, 3)
-        ADD_DATA_POINT (7, 2, 4)
-        ADD_DATA_POINT (7, 2, 5)
-        ADD_DATA_POINT (7, 3, 1)
-        ADD_DATA_POINT (7, 3, 2)
-        ADD_DATA_POINT (7, 3, 3)
-        ADD_DATA_POINT (7, 3, 4)
-        ADD_DATA_POINT (7, 3, 5)
-        ADD_DATA_POINT (7, 4, 1)
-        ADD_DATA_POINT (7, 4, 2)
-        ADD_DATA_POINT (7, 4, 3)
-        ADD_DATA_POINT (7, 4, 4)
-        ADD_DATA_POINT (7, 4, 5)
-        ADD_DATA_POINT (7, 5, 1)
-        ADD_DATA_POINT (7, 5, 2)
-        ADD_DATA_POINT (7, 5, 3)
-        ADD_DATA_POINT (7, 5, 4)
-        ADD_DATA_POINT (7, 5, 5)
-        ADD_DATA_POINT (7, 6, 1)
-        ADD_DATA_POINT (7, 6, 2)
-        ADD_DATA_POINT (7, 6, 3)
-        ADD_DATA_POINT (7, 6, 4)
-        ADD_DATA_POINT (7, 6, 5)
-        ADD_DATA_POINT (7, 7, 1)
-        ADD_DATA_POINT (7, 7, 2)
-        ADD_DATA_POINT (7, 7, 3)
-        ADD_DATA_POINT (7, 7, 4)
-        ADD_DATA_POINT (7, 7, 5)
-        ADD_DATA_POINT (7, 8, 1)
-        ADD_DATA_POINT (7, 8, 2)
-        ADD_DATA_POINT (7, 8, 3)
-        ADD_DATA_POINT (7, 8, 4)
-        ADD_DATA_POINT (7, 8, 5)
-        ADD_DATA_POINT (7, 9, 1)
-        ADD_DATA_POINT (7, 9, 2)
-        ADD_DATA_POINT (7, 9, 3)
-        ADD_DATA_POINT (7, 9, 4)
-        ADD_DATA_POINT (7, 9, 5)
+        /* ADD_DATA_POINT (3, 7, 1) */
+        /* ADD_DATA_POINT (3, 7, 2) */
+        /* ADD_DATA_POINT (3, 7, 3) */
+        /* ADD_DATA_POINT (3, 7, 4) */
+        /* ADD_DATA_POINT (3, 7, 5) */
+        /* ADD_DATA_POINT (3, 8, 1) */
+        /* ADD_DATA_POINT (3, 8, 2) */
+        /* ADD_DATA_POINT (3, 8, 3) */
+        /* ADD_DATA_POINT (3, 8, 4) */
+        /* ADD_DATA_POINT (3, 8, 5) */
+        /* ADD_DATA_POINT (3, 9, 1) */
+        /* ADD_DATA_POINT (3, 9, 2) */
+        /* ADD_DATA_POINT (3, 9, 3) */
+        /* ADD_DATA_POINT (3, 9, 4) */
+        /* ADD_DATA_POINT (3, 9, 5) */
+        /* ADD_DATA_POINT (5, 1, 1) */
+        /* ADD_DATA_POINT (5, 1, 2) */
+        /* ADD_DATA_POINT (5, 1, 3) */
+        /* ADD_DATA_POINT (5, 1, 4) */
+        /* ADD_DATA_POINT (5, 1, 5) */
+        /* ADD_DATA_POINT (5, 2, 1) */
+        /* ADD_DATA_POINT (5, 2, 2) */
+        /* ADD_DATA_POINT (5, 2, 3) */
+        /* ADD_DATA_POINT (5, 2, 4) */
+        /* ADD_DATA_POINT (5, 2, 5) */
+        /* ADD_DATA_POINT (5, 3, 1) */
+        /* ADD_DATA_POINT (5, 3, 2) */
+        /* ADD_DATA_POINT (5, 3, 3) */
+        /* ADD_DATA_POINT (5, 3, 4) */
+        /* ADD_DATA_POINT (5, 3, 5) */
+        /* ADD_DATA_POINT (5, 4, 1) */
+        /* ADD_DATA_POINT (5, 4, 2) */
+        /* ADD_DATA_POINT (5, 4, 3) */
+        /* ADD_DATA_POINT (5, 4, 4) */
+        /* ADD_DATA_POINT (5, 4, 5) */
+        /* ADD_DATA_POINT (5, 5, 1) */
+        /* ADD_DATA_POINT (5, 5, 2) */
+        /* ADD_DATA_POINT (5, 5, 3) */
+        /* ADD_DATA_POINT (5, 5, 4) */
+        /* ADD_DATA_POINT (5, 5, 5) */
+        /* ADD_DATA_POINT (5, 6, 1) */
+        /* ADD_DATA_POINT (5, 6, 2) */
+        /* ADD_DATA_POINT (5, 6, 3) */
+        /* ADD_DATA_POINT (5, 6, 4) */
+        /* ADD_DATA_POINT (5, 6, 5) */
+        /* ADD_DATA_POINT (5, 7, 1) */
+        /* ADD_DATA_POINT (5, 7, 2) */
+        /* ADD_DATA_POINT (5, 7, 3) */
+        /* ADD_DATA_POINT (5, 7, 4) */
+        /* ADD_DATA_POINT (5, 7, 5) */
+        /* ADD_DATA_POINT (5, 8, 1) */
+        /* ADD_DATA_POINT (5, 8, 2) */
+        /* ADD_DATA_POINT (5, 8, 3) */
+        /* ADD_DATA_POINT (5, 8, 4) */
+        /* ADD_DATA_POINT (5, 8, 5) */
+        /* ADD_DATA_POINT (5, 9, 1) */
+        /* ADD_DATA_POINT (5, 9, 2) */
+        /* ADD_DATA_POINT (5, 9, 3) */
+        /* ADD_DATA_POINT (5, 9, 4) */
+        /* ADD_DATA_POINT (5, 9, 5) */
+        /* ADD_DATA_POINT (7, 1, 1) */
+        /* ADD_DATA_POINT (7, 1, 2) */
+        /* ADD_DATA_POINT (7, 1, 3) */
+        /* ADD_DATA_POINT (7, 1, 4) */
+        /* ADD_DATA_POINT (7, 1, 5) */
+        /* ADD_DATA_POINT (7, 2, 1) */
+        /* ADD_DATA_POINT (7, 2, 2) */
+        /* ADD_DATA_POINT (7, 2, 3) */
+        /* ADD_DATA_POINT (7, 2, 4) */
+        /* ADD_DATA_POINT (7, 2, 5) */
+        /* ADD_DATA_POINT (7, 3, 1) */
+        /* ADD_DATA_POINT (7, 3, 2) */
+        /* ADD_DATA_POINT (7, 3, 3) */
+        /* ADD_DATA_POINT (7, 3, 4) */
+        /* ADD_DATA_POINT (7, 3, 5) */
+        /* ADD_DATA_POINT (7, 4, 1) */
+        /* ADD_DATA_POINT (7, 4, 2) */
+        /* ADD_DATA_POINT (7, 4, 3) */
+        /* ADD_DATA_POINT (7, 4, 4) */
+        /* ADD_DATA_POINT (7, 4, 5) */
+        /* ADD_DATA_POINT (7, 5, 1) */
+        /* ADD_DATA_POINT (7, 5, 2) */
+        /* ADD_DATA_POINT (7, 5, 3) */
+        /* ADD_DATA_POINT (7, 5, 4) */
+        /* ADD_DATA_POINT (7, 5, 5) */
+        /* ADD_DATA_POINT (7, 6, 1) */
+        /* ADD_DATA_POINT (7, 6, 2) */
+        /* ADD_DATA_POINT (7, 6, 3) */
+        /* ADD_DATA_POINT (7, 6, 4) */
+        /* ADD_DATA_POINT (7, 6, 5) */
+        /* ADD_DATA_POINT (7, 7, 1) */
+        /* ADD_DATA_POINT (7, 7, 2) */
+        /* ADD_DATA_POINT (7, 7, 3) */
+        /* ADD_DATA_POINT (7, 7, 4) */
+        /* ADD_DATA_POINT (7, 7, 5) */
+        /* ADD_DATA_POINT (7, 8, 1) */
+        /* ADD_DATA_POINT (7, 8, 2) */
+        /* ADD_DATA_POINT (7, 8, 3) */
+        /* ADD_DATA_POINT (7, 8, 4) */
+        /* ADD_DATA_POINT (7, 8, 5) */
+        /* ADD_DATA_POINT (7, 9, 1) */
+        /* ADD_DATA_POINT (7, 9, 2) */
+        /* ADD_DATA_POINT (7, 9, 3) */
+        /* ADD_DATA_POINT (7, 9, 4) */
+        /* ADD_DATA_POINT (7, 9, 5) */
         {
             return -1;
         }
         return 0;
     }
 
-    void run () {
+    void run (unsigned fit_response, unsigned fit_psf) {
+        unsigned i, j;
+
+        if (!fit_response) {
+            for (i = 0; i < nx_; ++i) {
+                for (j = 0; j < ny_; ++j) {
+                    problem_.SetParameterBlockConstant(&(response_[i*ny_+j]));
+                }
+            }
+        }
+
+        if (!fit_psf) problem_.SetParameterBlockConstant(psfpars_);
+
         // Set up the solver.
         ceres::Solver::Options options;
         options.max_num_iterations = 500;

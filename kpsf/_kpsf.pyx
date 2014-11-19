@@ -104,6 +104,7 @@ cdef extern from "kpsf.h" namespace "kpsf":
             const unsigned n_int,
             const unsigned n_star,
             const unsigned n_psf_comp,
+            const double response_strength,
             double* fluxes,     # The n_stars fluxes.
             double* origin,     # The 2-vector coords of the frame.
             double* offsets,    # The (n_stars,2) offset vectors for each star.
@@ -117,9 +118,10 @@ cdef extern from "kpsf.h" namespace "kpsf":
             const unsigned xi,
             const unsigned yi,
             const double flux,
-            const double ferr)
+            const double ferr,
+            const double cauchy_strength)
 
-        void run ()
+        void run (unsigned fit_response, unsigned fit_psf)
 
 
 def solve (time_series,
@@ -128,7 +130,9 @@ def solve (time_series,
            np.ndarray[DTYPE_t, ndim=2, mode="c"] offsets,
            np.ndarray[DTYPE_t, ndim=1, mode="c"] psfpars,
            np.ndarray[DTYPE_t, ndim=1, mode="c"] background,
-           np.ndarray[DTYPE_t, ndim=2, mode="c"] response):
+           np.ndarray[DTYPE_t, ndim=2, mode="c"] response,
+           double cauchy_strength, double response_strength,
+           unsigned fit_response, unsigned fit_psf):
     # Parse the dimensions.
     cdef unsigned nt = fluxes.shape[0]
     cdef unsigned ns = fluxes.shape[1]
@@ -148,6 +152,7 @@ def solve (time_series,
 
     # Initialize the solver.
     cdef Solver* solver = new Solver(nt, nx, ny, n_int, ns, n_psf_comp,
+                                     response_strength,
                                      <double*>(fluxes.data),
                                      <double*>(origin.data),
                                      <double*>(offsets.data),
@@ -156,22 +161,26 @@ def solve (time_series,
                                      <double*>(response.data))
 
     # Loop over the frames and add the pixels to the model.
-    cdef unsigned t, xi, yi
+    cdef unsigned t, ti, xi, yi
     cdef int flag
-    for t in range(nt):
-        if not time_series.good_times[t]:
+    t = 0
+    for ti in range(nt):
+        while not time_series.good_times[t]:
+            t += 1
             continue
         frame = time_series.frames[t]
         for xi in range(time_series.shape[0]):
             for yi in range(time_series.shape[1]):
                 if not np.isfinite(frame.img[xi, yi]):
                     continue
-                flag = solver.add_data_point(t, xi, yi,
+                flag = solver.add_data_point(ti, xi, yi,
                                              frame.img[xi, yi],
-                                             frame.err_img[xi, yi])
+                                             frame.err_img[xi, yi],
+                                             cauchy_strength)
                 if flag != 0:
                     raise RuntimeError("Couldn't add data point")
+        t += 1
 
     # Run the solver.
-    solver.run()
+    solver.run(fit_response, fit_psf)
     del solver
